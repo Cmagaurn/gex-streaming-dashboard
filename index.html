@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GEX Streaming Dashboard | ZeroGEX</title>
+  <title>GEX Streaming Dashboard | Hybrid</title>
   <link rel="stylesheet" href="styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
     <h1>GEX Streaming Dashboard</h1>
-    <p class="subtitle">ES gamma levels from ZeroGEX (free delayed) · 10Y & BZ oil on secondary axis · Polls every 60s</p>
+    <p class="subtitle">Hybrid: ZeroGEX ES levels + AlgoX SPY strike profile (×10 → ES, zoomed near spot) · Polls every 60s</p>
     <div class="controls">
       <input id="tickerInput" type="text" placeholder="ES (default), SPX, NQ..." value="ES">
       <button id="loadBtn">Load</button>
@@ -37,7 +37,7 @@
     </section>
 
     <section class="attribution">
-      Data by <a href="https://zerogex.io" target="_blank">ZeroGEX</a> (free delayed) · Yahoo Finance · Not financial advice<br>
+      Data by <a href="https://zerogex.io" target="_blank">ZeroGEX</a> (levels) + <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> (profile) · Yahoo Finance · Not financial advice<br>
       <span id="timeframe">Intraday · Last refresh: --</span>
     </section>
   </main>
