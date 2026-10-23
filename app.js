@@ -1,5 +1,8 @@
 const ZEROGEX_MCP = "https://zerogex.io/mcp";
+const ALGOX_BASE = "https://algoxflow.com/v1/gamma";
 const POLL_INTERVAL = 60000;
+const ES_MULTIPLIER = 10;
+const ZOOM_POINTS = 250;
 
 let chart = null;
 let currentTicker = "ES";
@@ -33,8 +36,7 @@ async function fetchYahoo(symbol) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Yahoo ${symbol} ${res.status}`);
   const data = await res.json();
-  const result = data.chart?.result?.[0];
-  return result?.meta?.regularMarketPrice ?? null;
+  return data.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
 }
 
 async function fetchZeroGEX(symbol) {
@@ -68,25 +70,34 @@ function parseZeroGEX(text) {
     putWall: get("Put wall"),
     regime: regimeMatch ? regimeMatch[1].toLowerCase() : "unknown",
     netGex: netMatch ? netMatch[1] : null,
-    raw: text
   };
 }
 
-async function fetchGamma(ticker) {
-  setStatus(`Loading ${ticker} (ZeroGEX) + markets\u2026`);
-  try {
-    const gammaPromise = fetchZeroGEX(ticker);
-    const esPromise = fetchYahoo("ES=F").catch(() => null);
-    const tnxPromise = fetchYahoo("^TNX").catch(() => null);
-    const oilPromise = fetchYahoo("BZ=F").catch(() => null);
+async function fetchAlgoXSPY() {
+  const res = await fetch(`${ALGOX_BASE}/SPY?strikes=1`);
+  if (!res.ok) throw new Error(`AlgoX ${res.status}`);
+  return res.json();
+}
 
-    const [gammaData, esPrice, tnxPrice, oilPrice] = await Promise.all([
-      gammaPromise, esPromise, tnxPromise, oilPromise
+function toES(value) {
+  return value == null ? null : Math.round(value * ES_MULTIPLIER * 100) / 100;
+}
+
+async function fetchAll() {
+  setStatus("Loading ZeroGEX levels + AlgoX profile + markets\u2026");
+  try {
+    const [zg, algox, esPrice, tnx, oil] = await Promise.all([
+      fetchZeroGEX("ES"),
+      fetchAlgoXSPY().catch(() => null),
+      fetchYahoo("ES=F").catch(() => null),
+      fetchYahoo("^TNX").catch(() => null),
+      fetchYahoo("BZ=F").catch(() => null),
     ]);
 
-    render(gammaData);
-    updateMarketPrices(esPrice, tnxPrice, oilPrice);
-    setStatus(`Live \u00b7 ${ticker} (ZeroGEX delayed)`);
+    renderLevels(zg);
+    updateMarketPrices(esPrice, tnx, oil);
+    renderChart(algox, zg.spot || esPrice);
+    setStatus("Live \u00b7 ZeroGEX levels + AlgoX profile (ES \u00d710)");
   } catch (err) {
     console.error(err);
     setStatus(`Error: ${err.message}`, true);
@@ -98,113 +109,84 @@ function updateMarketPrices(es, tnx, oil) {
   els.tnxPrice.textContent = `10Y: ${tnx != null ? tnx.toFixed(3) + "%" : "--"}`;
   els.oilPrice.textContent = `BZ Oil: ${oil != null ? oil.toFixed(2) : "--"}`;
 
-  if (chart && chart.data.datasets.length >= 3) {
-    const len = chart.data.labels.length;
-    chart.data.datasets[1].data = Array(len).fill(tnx);
-    chart.data.datasets[2].data = Array(len).fill(oil);
-    chart.update();
-  }
-
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   els.timeframe.textContent = `Intraday \u00b7 Last refresh: ${timeStr}`;
 }
 
-function render(data) {
-  const spot = data.spot;
-  const flip = data.flip;
-  const callW = data.callWall;
-  const putW = data.putWall;
-  const regime = data.regime || "unknown";
-  const net = data.netGex;
-
+function renderLevels(zg) {
+  const { spot, flip, callWall, putWall, regime, netGex } = zg;
   els.spotLevel.textContent = `ES Spot: ${spot != null ? spot.toLocaleString() : "--"}`;
   els.flipLevel.textContent = `Gamma Flip: ${flip != null ? flip.toLocaleString() : "--"}`;
-  els.callWall.textContent = `Call Wall: ${callW != null ? callW.toLocaleString() : "--"}`;
-  els.putWall.textContent = `Put Wall: ${putW != null ? putW.toLocaleString() : "--"}`;
-  els.netGex.textContent = `Net GEX: ${net || "--"}`;
+  els.callWall.textContent = `Call Wall: ${callWall != null ? callWall.toLocaleString() : "--"}`;
+  els.putWall.textContent = `Put Wall: ${putWall != null ? putWall.toLocaleString() : "--"}`;
+  els.netGex.textContent = `Net GEX: ${netGex || "--"}`;
   els.regime.textContent = `Regime: ${regime.toUpperCase()}`;
   els.regime.className = "level regime " + (regime.includes("short") || regime === "negative" ? "negative" : regime.includes("long") || regime === "positive" ? "positive" : "");
+  els.meta.textContent = "Levels: ZeroGEX free delayed (ES from SPX) \u00b7 Profile: AlgoX SPY \u00d710 \u2192 ES";
+}
 
-  els.meta.textContent = "Source: ZeroGEX free delayed levels (ES projected from SPX chain)";
+function renderChart(algox, focusSpot) {
+  if (!algox || !algox.strikes || algox.strikes.length === 0) {
+    setStatus("AlgoX profile unavailable (budget or error). Levels still shown.", true);
+    return;
+  }
+
+  const strikes = algox.strikes.map(s => ({
+    strike: toES(s.strike),
+    gex: s.net_gex_millions
+  })).filter(s => s.strike != null);
+
+  const minStrike = focusSpot ? focusSpot - ZOOM_POINTS : Math.min(...strikes.map(s => s.strike));
+  const maxStrike = focusSpot ? focusSpot + ZOOM_POINTS : Math.max(...strikes.map(s => s.strike));
+  const zoomed = strikes.filter(s => s.strike >= minStrike && s.strike <= maxStrike);
+
+  const labels = zoomed.map(s => s.strike.toLocaleString());
+  const values = zoomed.map(s => s.gex);
+  const colors = values.map(v => v >= 0 ? "#3fb950" : "#f85149");
 
   if (chart) chart.destroy();
-
-  const labels = ["Put Wall", "Spot", "Flip", "Call Wall"];
-  const levelValues = [putW, spot, flip, callW].map(v => v || 0);
 
   chart = new Chart(els.canvas, {
     type: "bar",
     data: {
       labels,
-      datasets: [
-        {
-          label: "Gamma Levels (ES)",
-          data: levelValues,
-          backgroundColor: ["#f85149", "#e6edf3", "#d29922", "#3fb950"],
-          yAxisID: "y",
-        },
-        {
-          label: "10Y Yield",
-          data: [null, null, null, null],
-          borderColor: "#58a6ff",
-          backgroundColor: "transparent",
-          type: "line",
-          yAxisID: "y1",
-          pointRadius: 0,
-          borderWidth: 2,
-        },
-        {
-          label: "BZ Oil",
-          data: [null, null, null, null],
-          borderColor: "#d29922",
-          backgroundColor: "transparent",
-          type: "line",
-          yAxisID: "y1",
-          pointRadius: 0,
-          borderWidth: 2,
-          borderDash: [5, 5],
-        }
-      ]
+      datasets: [{
+        label: "Net GEX ($M per 1%)",
+        data: values,
+        backgroundColor: colors,
+        borderWidth: 0,
+      }]
     },
     options: {
       indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: true, labels: { color: "#e6edf3" } },
-        title: { display: true, text: "ES Gamma Levels (ZeroGEX) + Cross-Asset", color: "#e6edf3" },
+        legend: { display: false },
+        title: {
+          display: true,
+          text: `ES Gamma Profile (AlgoX SPY \u00d710) \u00b7 Zoomed \u00b1${ZOOM_POINTS} pts`,
+          color: "#e6edf3"
+        },
       },
       scales: {
         x: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
-        y: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" }, position: "left" },
-        y1: {
-          type: "linear",
-          display: true,
-          position: "right",
-          ticks: { color: "#58a6ff" },
-          grid: { drawOnChartArea: false },
-          title: { display: true, text: "10Y / Oil", color: "#58a6ff" }
-        }
+        y: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
       },
     },
   });
 }
 
-function startPolling(ticker) {
+function startPolling() {
   if (pollTimer) clearInterval(pollTimer);
-  currentTicker = ticker.toUpperCase();
-  fetchGamma(currentTicker);
-  pollTimer = setInterval(() => fetchGamma(currentTicker), POLL_INTERVAL);
+  fetchAll();
+  pollTimer = setInterval(fetchAll, POLL_INTERVAL);
 }
 
-els.loadBtn.addEventListener("click", () => {
-  const t = els.tickerInput.value.trim();
-  if (t) startPolling(t);
-});
-
+els.loadBtn.addEventListener("click", startPolling);
 els.tickerInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") els.loadBtn.click();
+  if (e.key === "Enter") startPolling();
 });
 
-startPolling(currentTicker);
+startPolling();
