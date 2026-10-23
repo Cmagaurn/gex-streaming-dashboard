@@ -2,7 +2,7 @@ const API_BASE = "https://algoxflow.com/v1/gamma";
 const POLL_INTERVAL = 60000; // 60 seconds
 
 let chart = null;
-let currentTicker = "SPX";
+let currentTicker = "ES";
 let pollTimer = null;
 
 const els = {
@@ -29,8 +29,15 @@ async function fetchGamma(ticker) {
   try {
     const url = `${API_BASE}/${encodeURIComponent(ticker)}?strikes=1`;
     const res = await fetch(url);
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 503 || data.error === "budget_exhausted") {
+      setStatus(`503: Daily refresh budget spent for ${ticker}. Try SPY or a previously cached ticker.`, true);
+      els.meta.textContent = data.message || "AlgoX free API budget exhausted. Cached tickers still work.";
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+
     render(data);
     setStatus(`Live · ${ticker}`);
   } catch (err) {
@@ -60,14 +67,15 @@ function render(data) {
   const asOf = data.as_of ? new Date(data.as_of).toLocaleTimeString() : "--";
   els.meta.textContent = `Updated: ${asOf} · Age: ${age} · Cached: ${data.cached ? "yes" : "no"}`;
 
-  // Chart: horizontal bar of net GEX by strike (or simple levels if few strikes)
+  // Note for ES: AlgoX free API does not return proper E-mini futures levels
+  if (data.ticker === "ES" && spot != null && spot < 1000) {
+    els.meta.textContent += " · WARNING: AlgoX 'ES' is not the E-mini futures (spot ~67 vs ~7600). Use SPY as proxy or ZeroGEX for real ES levels.";
+  }
+
   const strikes = data.strikes || [];
   if (strikes.length === 0) {
-    // Fallback synthetic points around levels
     const levels = [putW, spot, flip, callW].filter(v => v != null);
-    if (levels.length) {
-      drawLevelsChart(levels, spot, flip);
-    }
+    if (levels.length) drawLevelsChart();
     return;
   }
 
@@ -104,8 +112,7 @@ function render(data) {
   });
 }
 
-function drawLevelsChart(levels, spot, flip) {
-  // Simple fallback: just highlight key levels
+function drawLevelsChart() {
   if (chart) chart.destroy();
   chart = new Chart(els.canvas, {
     type: "bar",
@@ -121,7 +128,7 @@ function drawLevelsChart(levels, spot, flip) {
       indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false }, title: { display: true, text: "Key Levels (synthetic)", color: "#e6edf3" } },
+      plugins: { legend: { display: false }, title: { display: true, text: "Key Levels", color: "#e6edf3" } },
       scales: { x: { display: false }, y: { ticks: { color: "#8b949e" } } },
     },
   });
@@ -143,5 +150,5 @@ els.tickerInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") els.loadBtn.click();
 });
 
-// Auto-start
+// Auto-start on ES
 startPolling(currentTicker);
