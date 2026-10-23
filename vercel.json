@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/history",
-      "schedule": "0 * * * *"
+      "schedule": "0 12 * * *"
     }
   ]
 }
