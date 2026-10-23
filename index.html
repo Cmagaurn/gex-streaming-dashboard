@@ -10,9 +10,11 @@
 <body>
   <header>
     <h1>GEX Streaming Dashboard</h1>
-    <p class="subtitle">Live dealer gamma levels from AlgoX Flow free API · Polls every 60s</p>
+    <p class="subtitle">ES-focused dealer gamma levels from AlgoX Flow free API · Polls every 60s<br>
+      <small style="color:#f85149">Note: AlgoX free API does not provide proper E-mini ES futures levels (returns wrong instrument). SPY is the reliable free proxy. For real ES gamma use ZeroGEX.</small>
+    </p>
     <div class="controls">
-      <input id="tickerInput" type="text" placeholder="SPX, SPY, QQQ, NVDA..." value="SPX">
+      <input id="tickerInput" type="text" placeholder="ES, SPY, QQQ, NVDA..." value="ES">
       <button id="loadBtn">Load</button>
       <span id="status">Ready</span>
     </div>
