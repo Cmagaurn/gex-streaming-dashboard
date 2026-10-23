@@ -19,6 +19,10 @@ const els = {
   regime: document.getElementById("regime"),
   meta: document.getElementById("meta"),
   canvas: document.getElementById("gexChart"),
+  esPrice: document.getElementById("esPrice"),
+  tnxPrice: document.getElementById("tnxPrice"),
+  oilPrice: document.getElementById("oilPrice"),
+  timeframe: document.getElementById("timeframe"),
 };
 
 function setStatus(msg, isError = false) {
@@ -31,26 +35,53 @@ function toES(value) {
   return Math.round(value * ES_MULTIPLIER * 100) / 100;
 }
 
-async function fetchGamma(ticker) {
-  setStatus(`Loading ${ticker}…`);
-  try {
-    const url = `${API_BASE}/${encodeURIComponent(ticker)}?strikes=1`;
-    const res = await fetch(url);
-    const data = await res.json().catch(() => ({}));
+async function fetchYahoo(symbol) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Yahoo ${symbol} ${res.status}`);
+  const data = await res.json();
+  const result = data.chart?.result?.[0];
+  return result?.meta?.regularMarketPrice ?? null;
+}
 
-    if (res.status === 503 || data.error === "budget_exhausted") {
-      setStatus(`503: Daily refresh budget spent for ${ticker}. Try a previously cached ticker.`, true);
-      els.meta.textContent = data.message || "AlgoX free API budget exhausted. Cached tickers still work.";
+async function fetchGamma(ticker) {
+  setStatus(`Loading ${ticker} + markets…`);
+  try {
+    const gammaPromise = fetch(`${API_BASE}/${encodeURIComponent(ticker)}?strikes=1`);
+    const esPromise = fetchYahoo("ES=F").catch(() => null);
+    const tnxPromise = fetchYahoo("^TNX").catch(() => null);
+    const oilPromise = fetchYahoo("BZ=F").catch(() => null);
+
+    const [gammaRes, esPrice, tnxPrice, oilPrice] = await Promise.all([
+      gammaPromise, esPromise, tnxPromise, oilPromise
+    ]);
+
+    const data = await gammaRes.json().catch(() => ({}));
+
+    if (gammaRes.status === 503 || data.error === "budget_exhausted") {
+      setStatus(`503: Daily refresh budget spent for ${ticker}.`, true);
+      els.meta.textContent = data.message || "AlgoX free API budget exhausted.";
       return;
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!gammaRes.ok) throw new Error(`HTTP ${gammaRes.status}`);
 
     render(data);
+    updateMarketPrices(esPrice, tnxPrice, oilPrice);
     setStatus(`Live · ${ticker} → ES (×${ES_MULTIPLIER})`);
   } catch (err) {
     console.error(err);
     setStatus(`Error: ${err.message}`, true);
   }
+}
+
+function updateMarketPrices(es, tnx, oil) {
+  els.esPrice.textContent = `/ES: ${es != null ? es.toLocaleString() : "--"}`;
+  els.tnxPrice.textContent = `10Y: ${tnx != null ? tnx.toFixed(3) + "%" : "--"}`;
+  els.oilPrice.textContent = `BZ Oil: ${oil != null ? oil.toFixed(2) : "--"}`;
+
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  els.timeframe.textContent = `Intraday · Last refresh: ${timeStr}`;
 }
 
 function render(data) {
@@ -62,7 +93,6 @@ function render(data) {
   const net = g.net_gex_millions;
   const regime = g.regime || "unknown";
 
-  // Convert to ES equivalent when streaming SPY
   const isSPY = data.ticker === "SPY";
   const spot = isSPY && showES ? toES(spySpot) : spySpot;
   const flip = isSPY && showES ? toES(spyFlip) : spyFlip;
