@@ -3,8 +3,11 @@ const ALGOX_BASE = "https://algoxflow.com/v1/gamma";
 const POLL_INTERVAL = 60000;
 const ES_MULTIPLIER = 10;
 const ZOOM_POINTS = 250;
+const HISTORY_KEY = "gex_history_es";
+const MAX_HISTORY_DAYS = 5;
 
 let chart = null;
+let historyChart = null;
 let currentTicker = "ES";
 let pollTimer = null;
 
@@ -20,6 +23,7 @@ const els = {
   regime: document.getElementById("regime"),
   meta: document.getElementById("meta"),
   canvas: document.getElementById("gexChart"),
+  historyCanvas: document.getElementById("historyChart"),
   esPrice: document.getElementById("esPrice"),
   tnxPrice: document.getElementById("tnxPrice"),
   oilPrice: document.getElementById("oilPrice"),
@@ -83,6 +87,77 @@ function toES(value) {
   return value == null ? null : Math.round(value * ES_MULTIPLIER * 100) / 100;
 }
 
+function parseNetGex(raw) {
+  if (!raw) return null;
+  const num = parseFloat(raw.replace(/[\u2212\-$,]/g, "").replace("B", "e9").replace("M", "e6"));
+  return isNaN(num) ? null : (raw.includes("\u2212") || raw.includes("-") ? -num : num);
+}
+
+function saveHistory(zg) {
+  try {
+    const entry = {
+      ts: Date.now(),
+      spot: zg.spot,
+      flip: zg.flip,
+      netGex: parseNetGex(zg.netGex),
+      regime: zg.regime,
+    };
+    let hist = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    hist.push(entry);
+    const cutoff = Date.now() - MAX_HISTORY_DAYS * 86400000;
+    hist = hist.filter(e => e.ts >= cutoff);
+    const byHour = {};
+    hist.forEach(e => {
+      const key = Math.floor(e.ts / 3600000);
+      byHour[key] = e;
+    });
+    hist = Object.values(byHour).sort((a, b) => a.ts - b.ts);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
+    return hist;
+  } catch (e) {
+    console.warn("History save failed", e);
+    return [];
+  }
+}
+
+function renderHistoryChart(hist) {
+  if (!els.historyCanvas) return;
+  const labels = hist.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit" }));
+  const values = hist.map(e => e.netGex);
+  const colors = values.map(v => v >= 0 ? "#3fb950" : "#f85149");
+
+  if (historyChart) historyChart.destroy();
+
+  historyChart = new Chart(els.historyCanvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Net GEX ($)",
+        data: values,
+        borderColor: "#58a6ff",
+        backgroundColor: "rgba(88,166,255,0.1)",
+        fill: true,
+        tension: 0.2,
+        pointBackgroundColor: colors,
+        pointRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        title: { display: true, text: "5-Day Net GEX Trend (local storage)", color: "#e6edf3" },
+      },
+      scales: {
+        x: { ticks: { color: "#8b949e", maxTicksLimit: 8 }, grid: { color: "#30363d" } },
+        y: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
+      },
+    },
+  });
+}
+
 async function fetchAll() {
   setStatus("Loading ZeroGEX levels + AlgoX profile + markets\u2026");
   try {
@@ -97,6 +172,8 @@ async function fetchAll() {
     renderLevels(zg);
     updateMarketPrices(esPrice, tnx, oil);
     renderChart(algox, zg.spot || esPrice);
+    const hist = saveHistory(zg);
+    renderHistoryChart(hist);
     setStatus("Live \u00b7 ZeroGEX levels + AlgoX profile (ES \u00d710)");
   } catch (err) {
     console.error(err);
