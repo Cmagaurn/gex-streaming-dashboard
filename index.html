@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GEX Streaming Dashboard | AlgoX Flow</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header>
+    <h1>GEX Streaming Dashboard</h1>
+    <p class="subtitle">Live dealer gamma levels from AlgoX Flow free API · Polls every 60s</p>
+    <div class="controls">
+      <input id="tickerInput" type="text" placeholder="SPX, SPY, QQQ, NVDA..." value="SPX">
+      <button id="loadBtn">Load</button>
+      <span id="status">Ready</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="levels-card">
+      <div class="level" id="spotLevel">Spot: --</div>
+      <div class="level" id="flipLevel">Gamma Flip: --</div>
+      <div class="level" id="callWall">Call Wall: --</div>
+      <div class="level" id="putWall">Put Wall: --</div>
+      <div class="level" id="netGex">Net GEX: --</div>
+      <div class="level regime" id="regime">Regime: --</div>
+      <div class="meta" id="meta">Updated: -- · Age: --</div>
+    </section>
+
+    <section class="chart-section">
+      <canvas id="gexChart"></canvas>
+    </section>
+
+    <section class="attribution">
+      Data by <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> · Free public API · Not financial advice
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
