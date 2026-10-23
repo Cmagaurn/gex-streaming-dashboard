@@ -120,6 +120,21 @@ function saveHistory(zg) {
   }
 }
 
+async function loadHistory() {
+  try {
+    const res = await fetch("/api/history");
+    if (res.ok) {
+      const remote = await res.json();
+      if (Array.isArray(remote) && remote.length) return remote;
+    }
+  } catch (e) {}
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
 function renderHistoryChart(hist) {
   if (!els.historyCanvas) return;
   const labels = hist.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit" }));
@@ -148,7 +163,7 @@ function renderHistoryChart(hist) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        title: { display: true, text: "5-Day Net GEX Trend (local storage)", color: "#e6edf3" },
+        title: { display: true, text: "5-Day Net GEX Trend (repo history)", color: "#e6edf3" },
       },
       scales: {
         x: { ticks: { color: "#8b949e", maxTicksLimit: 8 }, grid: { color: "#30363d" } },
@@ -172,7 +187,8 @@ async function fetchAll() {
     renderLevels(zg);
     updateMarketPrices(esPrice, tnx, oil);
     renderChart(algox, zg.spot || esPrice);
-    const hist = saveHistory(zg);
+    const hist = await loadHistory();
+    saveHistory(zg);
     renderHistoryChart(hist);
     setStatus("Live \u00b7 ZeroGEX levels + AlgoX profile (ES \u00d710)");
   } catch (err) {
