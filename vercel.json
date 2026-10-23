@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "functions": {
+    "api/history.js": {
+      "maxDuration": 30
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/history",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
