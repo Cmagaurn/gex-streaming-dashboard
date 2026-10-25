@@ -36,11 +36,10 @@ function setStatus(msg, isError = false) {
 }
 
 async function fetchYahoo(symbol) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Yahoo ${symbol} ${res.status}`);
+  const res = await fetch(`/api/yahoo?symbol=${encodeURIComponent(symbol)}`);
+  if (!res.ok) throw new Error(`Yahoo proxy ${res.status}`);
   const data = await res.json();
-  return data.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
+  return data.price ?? null;
 }
 
 async function fetchZeroGEX(symbol) {
