@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=12">
+  <link rel="stylesheet" href="styles.css?v=13">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 1400px; }
@@ -84,15 +84,21 @@
 
     <section class="attribution">
       <strong>Data sources & refresh</strong><br>
-      Levels (spot, flip, walls, regime, net GEX): <a href="https://zerogex.io" target="_blank">ZeroGEX</a> free delayed (ES modeled from SPX, ~15+ min behind) · refreshed every 60s<br>
+      Levels (spot, flip, walls, regime, net GEX): <a href="https://zerogex.io" target="_blank">ZeroGEX</a> free delayed (ES modeled from SPX options, ~15+ min behind) · app polls every 60s<br>
       Strike profile: <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> SPY ×10 → ES · full spread, 25-pt bars within ±500 of spot<br>
-      Prices (/ES, 10Y, BZ Oil): Yahoo Finance via proxy · refreshed every 60s<br>
-      5-day net GEX history + indicator metrics: local + repo snapshots · chart y-axis in $B/$M or %<br>
+      Prices (/ES, 10Y, BZ Oil): Yahoo Finance via proxy · app polls every 60s<br>
+      5-day net GEX history + indicator metrics: GitHub Actions every 30 min + localStorage · chart y-axis in $B/$M or %<br>
+      <br>
+      <strong>When data is flowing vs closed</strong><br>
+      • <strong>/ES futures</strong> (Yahoo price): nearly 24/5 — Sunday ~6:00 PM ET through Friday ~5:00 PM ET, with a brief daily maintenance break (~5:00–6:00 PM ET). Outside these hours quotes may be stale or unavailable.<br>
+      • <strong>SPX options / ZeroGEX levels & AlgoX SPY profile</strong>: most useful during US cash-equity hours (regular session ~9:30 AM–4:00 PM ET). Outside RTH the free delayed feeds may freeze, lag more, or return the last available snapshot. Extended hours exist but gamma modeling is thinner.<br>
+      • <strong>10Y & BZ Oil</strong> (Yahoo): follow their respective futures/cash sessions; typically available when those markets are open.<br>
+      • History collection (GitHub Actions) continues on its 30-min schedule regardless of market hours, storing whatever the sources return (including stale values when closed).<br>
       <span id="timeframe">Intraday · Last refresh: --</span><br>
       Not financial advice.
     </section>
   </main>
 
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
 </body>
 </html>
