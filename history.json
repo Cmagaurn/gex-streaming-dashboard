@@ -13,12 +13,12 @@
     "bias": "Straddle / expansion bias"
   },
   {
-    "ts": 1793130591410,
-    "spot": 7766.25,
-    "flip": 7768.75,
+    "ts": 1793130655264,
+    "spot": 7768.25,
+    "flip": 7769,
     "callWall": 8038.5,
     "putWall": 7737,
-    "netGex": -839400000,
+    "netGex": -644500000,
     "regime": "short",
     "long": 25,
     "short": 29,
