@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=18">
+  <link rel="stylesheet" href="styles.css?v=19">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 1400px; }
@@ -56,6 +56,7 @@
       <div class="level" id="callWall">Call Wall: --</div>
       <div class="level" id="putWall">Put Wall: --</div>
       <div class="level" id="netGex">Net GEX: --</div>
+      <div class="level" id="vixPrice">VIX: --</div>
       <div class="level regime" id="regime">Regime: --</div>
       <div class="level" id="esPrice">Price: --</div>
       <div class="level" id="tnxPrice">10Y: --</div>
@@ -111,13 +112,13 @@
       <strong>Data sources & refresh</strong><br>
       Levels: <a href="https://zerogex.io" target="_blank">ZeroGEX</a> free delayed (~15 min) for SPX, SPY, QQQ, NDX, ES, NQ · app polls every 60s<br>
       Strike profile: <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> (SPY for ES/SPX/SPY, QQQ for NQ/NDX/QQQ)<br>
-      Prices: Yahoo Finance via proxy · 10Y & BZ Oil always shown<br>
+      Prices: Yahoo Finance via proxy · VIX, 10Y & BZ Oil always shown<br>
       History: shared store for all six symbols · external cron every 5 min (Sun 3PM–Fri 8PM CDT)<br>
       <span id="timeframe">Intraday · Last refresh: --</span><br>
       Not financial advice.
     </section>
   </main>
 
-  <script src="app.js?v=18"></script>
+  <script src="app.js?v=19"></script>
 </body>
 </html>
