@@ -5,6 +5,7 @@ const ES_MULTIPLIER = 10;
 const MAX_HISTORY_DAYS = 5;
 const NEAR_SPOT_PTS = 500;
 const NEAR_SPOT_STEP = 25;
+const HISTORY_POST_INTERVAL = 15 * 60 * 1000;
 
 let chart = null;
 let historyChart = null;
@@ -12,6 +13,7 @@ let metricsChart = null;
 let pollTimer = null;
 let prevTnx = null;
 let prevOil = null;
+let lastHistoryPost = 0;
 
 const els = {
   tickerInput: document.getElementById("tickerInput"),
@@ -119,7 +121,6 @@ function formatGex(v) {
 }
 
 async function loadHistory() {
-  // Shared history only — same data on every device
   try {
     const res = await fetch("/history.json?t=" + Date.now());
     if (res.ok) {
@@ -130,6 +131,17 @@ async function loadHistory() {
     }
   } catch (e) {}
   return [];
+}
+
+async function postHistorySnapshot() {
+  const now = Date.now();
+  if (now - lastHistoryPost < HISTORY_POST_INTERVAL) return;
+  lastHistoryPost = now;
+  try {
+    await fetch("/api/history", { method: "POST" });
+  } catch (e) {
+    console.warn("History post failed", e);
+  }
 }
 
 function renderHistoryChart(hist) {
@@ -300,6 +312,7 @@ async function fetchAll() {
     renderChart(algox, zg.spot || esPrice, zg);
     renderHistoryChart(hist);
     renderMetricsChart(hist);
+    postHistorySnapshot();
     setStatus("Live \u00b7 ZeroGEX levels + AlgoX profile (ES \u00d710)");
   } catch (err) {
     console.error(err);
