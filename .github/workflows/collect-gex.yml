@@ -1,0 +1,97 @@
+name: Collect GEX History
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # every 30 minutes
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch ZeroGEX and update history.json
+        run: |
+          python3 << 'PY'
+          import json, urllib.request, time, re
+          from pathlib import Path
+
+          ZEROGEX = "https://zerogex.io/mcp"
+          HISTORY = Path("history.json")
+          MAX_DAYS = 5
+
+          def fetch_zerogex():
+              req = urllib.request.Request(
+                  ZEROGEX,
+                  data=json.dumps({
+                      "jsonrpc": "2.0",
+                      "id": 1,
+                      "method": "tools/call",
+                      "params": {"name": "get_gamma_levels", "arguments": {"symbol": "ES"}}
+                  }).encode(),
+                  headers={"Content-Type": "application/json"}
+              )
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  data = json.loads(r.read())
+              text = data.get("result", {}).get("content", [{}])[0].get("text", "")
+              return text
+
+          def parse(text):
+              def get(label):
+                  m = re.search(label + r":\s*([\d,.]+)", text, re.I)
+                  return float(m.group(1).replace(",", "")) if m else None
+              regime = re.search(r"Modeled regime:\s*(\w+)", text, re.I)
+              net = re.search(r"Net dealer gamma at spot:\s*([−\-\$0-9.,]+[BM])", text, re.I)
+              return {
+                  "spot": get("Spot the levels were computed against"),
+                  "flip": get("Gamma flip"),
+                  "callWall": get("Call wall"),
+                  "putWall": get("Put wall"),
+                  "regime": regime.group(1).lower() if regime else "unknown",
+                  "netGex": net.group(1) if net else None,
+              }
+
+          def parse_net(raw):
+              if not raw: return None
+              num = float(re.sub(r"[−\-$,]", "", raw).replace("B", "e9").replace("M", "e6"))
+              return -num if ("−" in raw or "-" in raw) else num
+
+          try:
+              text = fetch_zerogex()
+              zg = parse(text)
+              entry = {
+                  "ts": int(time.time() * 1000),
+                  "spot": zg["spot"],
+                  "flip": zg["flip"],
+                  "netGex": parse_net(zg["netGex"]),
+                  "regime": zg["regime"],
+              }
+              hist = []
+              if HISTORY.exists():
+                  hist = json.loads(HISTORY.read_text() or "[]")
+              hist.append(entry)
+              cutoff = entry["ts"] - MAX_DAYS * 86400000
+              hist = [e for e in hist if e.get("ts", 0) >= cutoff]
+              by15 = {}
+              for e in hist:
+                  key = e["ts"] // (15 * 60 * 1000)
+                  by15[key] = e
+              hist = sorted(by15.values(), key=lambda x: x["ts"])
+              if len(hist) > 500:
+                  hist = hist[-500:]
+              HISTORY.write_text(json.dumps(hist, indent=2))
+              print(f"Updated history with {len(hist)} points. Latest netGex={entry['netGex']}")
+          except Exception as e:
+              print(f"Error: {e}")
+              raise
+          PY
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add history.json
+          git diff --staged --quiet || git commit -m "Update GEX history $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push
