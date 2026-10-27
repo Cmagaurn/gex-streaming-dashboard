@@ -26,8 +26,8 @@ function parseZeroGEX(text) {
     const m = text.match(new RegExp(label + ":\\s*([\\d,.]+)", "i"));
     return m ? parseFloat(m[1].replace(/,/g, "")) : null;
   };
-  const regimeMatch = text.match(/Modeled regime:\s*(\w+)/i);
-  const netMatch = text.match(/Net dealer gamma at spot:\s*([\u2212\-\$0-9.,]+[BM])/i);
+  const regimeMatch = text.match(/Modeled regime:\\s*(\\w+)/i);
+  const netMatch = text.match(/Net dealer gamma at spot:\\s*([\\u2212\\-\\$0-9.,]+[BM])/i);
   return {
     spot: get("Spot the levels were computed against"),
     flip: get("Gamma flip"),
@@ -40,8 +40,8 @@ function parseZeroGEX(text) {
 
 function parseNetGex(raw) {
   if (!raw) return null;
-  const num = parseFloat(raw.replace(/[\u2212\-$,]/g, "").replace("B", "e9").replace("M", "e6"));
-  return isNaN(num) ? null : (raw.includes("\u2212") || raw.includes("-") ? -num : num);
+  const num = parseFloat(raw.replace(/[\\u2212\\-$,]/g, "").replace("B", "e9").replace("M", "e6"));
+  return isNaN(num) ? null : (raw.includes("\\u2212") || raw.includes("-") ? -num : num);
 }
 
 export default async function handler(req, res) {
@@ -83,12 +83,15 @@ export default async function handler(req, res) {
 
     const cutoff = Date.now() - MAX_DAYS * 86400000;
     history = history.filter(e => e.ts >= cutoff);
-    const byHour = {};
+    // Keep at most one point every 15 minutes for denser 5-day chart
+    const by15 = {};
     history.forEach(e => {
-      const key = Math.floor(e.ts / 3600000);
-      byHour[key] = e;
+      const key = Math.floor(e.ts / (15 * 60 * 1000));
+      by15[key] = e;
     });
-    history = Object.values(byHour).sort((a, b) => a.ts - b.ts);
+    history = Object.values(by15).sort((a, b) => a.ts - b.ts);
+    // Cap total points so the file stays small
+    if (history.length > 500) history = history.slice(-500);
 
     const content = Buffer.from(JSON.stringify(history, null, 2)).toString("base64");
     const putRes = await fetch(
