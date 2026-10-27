@@ -66,8 +66,8 @@ function parseZeroGEX(text) {
     const m = text.match(new RegExp(label + ":\\s*([\\d,.]+)", "i"));
     return m ? parseFloat(m[1].replace(/,/g, "")) : null;
   };
-  const regimeMatch = text.match(/Modeled regime:\\s*(\\w+)/i);
-  const netMatch = text.match(/Net dealer gamma at spot:\\s*([\\u2212\\-\\$0-9.,]+[BM])/i);
+  const regimeMatch = text.match(/Modeled regime:\s*(\w+)/i);
+  const netMatch = text.match(/Net dealer gamma at spot:\s*([−\-\$0-9.,]+[BM])/i);
   return {
     spot: get("Spot the levels were computed against"),
     flip: get("Gamma flip"),
@@ -90,8 +90,8 @@ function toES(value) {
 
 function parseNetGex(raw) {
   if (!raw) return null;
-  const num = parseFloat(raw.replace(/[\\u2212\\-$,]/g, "").replace("B", "e9").replace("M", "e6"));
-  return isNaN(num) ? null : (raw.includes("\\u2212") || raw.includes("-") ? -num : num);
+  const num = parseFloat(raw.replace(/[−\-$,]/g, "").replace("B", "e9").replace("M", "e6"));
+  return isNaN(num) ? null : (raw.includes("−") || raw.includes("-") ? -num : num);
 }
 
 let lastServerPost = 0;
