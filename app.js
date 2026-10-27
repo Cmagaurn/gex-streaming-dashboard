@@ -64,8 +64,8 @@ function parseZeroGEX(text) {
     const m = text.match(new RegExp(label + ":\\s*([\\d,.]+)", "i"));
     return m ? parseFloat(m[1].replace(/,/g, "")) : null;
   };
-  const regimeMatch = text.match(/Modeled regime:\s*(\w+)/i);
-  const netMatch = text.match(/Net dealer gamma at spot:\s*([\u2212\-\$0-9.,]+[BM])/i);
+  const regimeMatch = text.match(/Modeled regime:\\s*(\\w+)/i);
+  const netMatch = text.match(/Net dealer gamma at spot:\\s*([\\u2212\\-\\$0-9.,]+[BM])/i);
   return {
     spot: get("Spot the levels were computed against"),
     flip: get("Gamma flip"),
@@ -88,8 +88,21 @@ function toES(value) {
 
 function parseNetGex(raw) {
   if (!raw) return null;
-  const num = parseFloat(raw.replace(/[\u2212\-$,]/g, "").replace("B", "e9").replace("M", "e6"));
-  return isNaN(num) ? null : (raw.includes("\u2212") || raw.includes("-") ? -num : num);
+  const num = parseFloat(raw.replace(/[\\u2212\\-$,]/g, "").replace("B", "e9").replace("M", "e6"));
+  return isNaN(num) ? null : (raw.includes("\\u2212") || raw.includes("-") ? -num : num);
+}
+
+let lastServerPost = 0;
+
+async function postSnapshot(zg) {
+  const now = Date.now();
+  if (now - lastServerPost < 10 * 60 * 1000) return;
+  lastServerPost = now;
+  try {
+    await fetch("/api/history", { method: "POST" });
+  } catch (e) {
+    console.warn("Server history post failed", e);
+  }
 }
 
 function saveHistory(zg) {
@@ -165,7 +178,7 @@ function renderHistoryChart(hist) {
         title: { display: true, text: "5-Day Net GEX Trend (repo history)", color: "#e6edf3" },
       },
       scales: {
-        x: { ticks: { color: "#8b949e", maxTicksLimit: 8 }, grid: { color: "#30363d" } },
+        x: { ticks: { color: "#8b949e", maxTicksLimit: 12 }, grid: { color: "#30363d" } },
         y: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
       },
     },
@@ -188,6 +201,7 @@ async function fetchAll() {
     renderChart(algox, zg.spot || esPrice);
     const hist = await loadHistory();
     saveHistory(zg);
+    postSnapshot(zg);
     renderHistoryChart(hist);
     setStatus("Live \u00b7 ZeroGEX levels + AlgoX profile (ES \u00d710)");
   } catch (err) {
