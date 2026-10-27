@@ -26,19 +26,6 @@
     "bias": "Straddle / expansion bias"
   },
   {
-    "ts": 1793131580380,
-    "spot": 7765.75,
-    "flip": 7768.25,
-    "callWall": 8038.5,
-    "putWall": 7737,
-    "netGex": -444300000,
-    "regime": "short",
-    "long": 25,
-    "short": 29,
-    "straddle": 46,
-    "bias": "Straddle / expansion bias"
-  },
-  {
     "ts": 1793132480890,
     "spot": 7762.25,
     "flip": 7769.75,
@@ -52,8 +39,8 @@
     "bias": "Straddle / expansion bias"
   },
   {
-    "ts": 1793133743431,
-    "spot": 7758.75,
+    "ts": 1793134401235,
+    "spot": 7756.25,
     "flip": 7769.75,
     "callWall": 8038.5,
     "putWall": 7737,
