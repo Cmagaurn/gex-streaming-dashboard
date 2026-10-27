@@ -2,13 +2,13 @@ const ZEROGEX_MCP = "https://zerogex.io/mcp";
 const ALGOX_BASE = "https://algoxflow.com/v1/gamma";
 const POLL_INTERVAL = 60000;
 const ES_MULTIPLIER = 10;
-const ZOOM_BARS = 10;
 const HISTORY_KEY = "gex_history_es";
 const MAX_HISTORY_DAYS = 5;
+const NEAR_SPOT_PTS = 500;
+const NEAR_SPOT_STEP = 25;
 
 let chart = null;
 let historyChart = null;
-let currentTicker = "ES";
 let pollTimer = null;
 let prevTnx = null;
 let prevOil = null;
@@ -33,6 +33,7 @@ const els = {
 };
 
 function setStatus(msg, isError = false) {
+  if (!els.status) return;
   els.status.textContent = msg;
   els.status.style.color = isError ? "#f85149" : "#8b949e";
 }
@@ -62,19 +63,26 @@ async function fetchZeroGEX(symbol) {
 }
 
 function parseZeroGEX(text) {
-  const get = (label) => {
-    const m = text.match(new RegExp(label + ":\\s*([\\d,.]+)", "i"));
+  const getNum = (label) => {
+    const idx = text.toLowerCase().indexOf(label.toLowerCase());
+    if (idx < 0) return null;
+    const after = text.slice(idx + label.length);
+    const m = after.match(/[:\s]*([0-9,]+\.?[0-9]*)/);
     return m ? parseFloat(m[1].replace(/,/g, "")) : null;
   };
-  const regimeMatch = text.match(/Modeled regime:\\s*(\\w+)/i);
-  const netMatch = text.match(/Net dealer gamma at spot:\\s*([^\\n]+)/i);
+  const regimeLine = (text.match(/Modeled regime:[^\n]*/i) || [""])[0];
+  let regime = "unknown";
+  if (/short/i.test(regimeLine)) regime = "short";
+  else if (/long/i.test(regimeLine)) regime = "long";
+  const netLine = (text.match(/Net dealer gamma at spot:[^\n]*/i) || [""])[0];
+  const netM = netLine.match(/(-?\$?[0-9.]+[BM])/i);
   return {
-    spot: get("Spot the levels were computed against"),
-    flip: get("Gamma flip"),
-    callWall: get("Call wall"),
-    putWall: get("Put wall"),
-    regime: regimeMatch ? regimeMatch[1].toLowerCase() : "unknown",
-    netGex: netMatch ? netMatch[1].trim() : null,
+    spot: getNum("Spot the levels were computed against"),
+    flip: getNum("Gamma flip"),
+    callWall: getNum("Call wall"),
+    putWall: getNum("Put wall"),
+    regime,
+    netGex: netM ? netM[1] : null,
   };
 }
 
@@ -90,23 +98,10 @@ function toES(value) {
 
 function parseNetGex(raw) {
   if (!raw) return null;
-  const negative = raw.includes("-") || raw.includes("\u2212");
-  const cleaned = raw.replace(/[^0-9.BM]/g, "").replace("B", "e9").replace("M", "e6");
+  const negative = String(raw).includes("-");
+  const cleaned = String(raw).replace(/[^0-9.BM]/g, "").replace("B", "e9").replace("M", "e6");
   const num = parseFloat(cleaned);
   return isNaN(num) ? null : (negative ? -num : num);
-}
-
-let lastServerPost = 0;
-
-async function postSnapshot(zg) {
-  const now = Date.now();
-  if (now - lastServerPost < 5 * 60 * 1000) return;
-  lastServerPost = now;
-  try {
-    await fetch("/api/history", { method: "POST" });
-  } catch (e) {
-    console.warn("Server history post failed", e);
-  }
 }
 
 function saveHistory(zg) {
@@ -131,7 +126,6 @@ function saveHistory(zg) {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
     return hist;
   } catch (e) {
-    console.warn("History save failed", e);
     return [];
   }
 }
@@ -139,16 +133,14 @@ function saveHistory(zg) {
 async function loadHistory() {
   let remote = [];
   try {
-    const res = await fetch("/api/history");
+    const res = await fetch("/history.json?t=" + Date.now());
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data)) remote = data;
     }
   } catch (e) {}
   let local = [];
-  try {
-    local = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-  } catch {}
+  try { local = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch {}
   const by15 = {};
   [...remote, ...local].forEach(e => {
     if (!e || !e.ts) return;
@@ -162,7 +154,7 @@ function renderHistoryChart(hist) {
   if (!els.historyCanvas) return;
   const labels = hist.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
   const values = hist.map(e => e.netGex);
-  const colors = values.map(v => v >= 0 ? "#3fb950" : "#f85149");
+  const colors = values.map(v => (v >= 0 ? "#3fb950" : "#f85149"));
 
   if (historyChart) historyChart.destroy();
 
@@ -212,7 +204,6 @@ async function fetchAll() {
     renderChart(algox, zg.spot || esPrice);
     const hist = await loadHistory();
     saveHistory(zg);
-    postSnapshot(zg);
     renderHistoryChart(hist);
     setStatus("Live \u00b7 ZeroGEX levels + AlgoX profile (ES \u00d710)");
   } catch (err) {
@@ -229,47 +220,62 @@ function arrowFor(current, previous) {
 }
 
 function updateMarketPrices(es, tnx, oil) {
-  els.esPrice.textContent = `/ES: ${es != null ? es.toLocaleString() : "--"}`;
-
+  if (els.esPrice) els.esPrice.textContent = `/ES: ${es != null ? es.toLocaleString() : "--"}`;
   const tnxArrow = arrowFor(tnx, prevTnx);
-  els.tnxPrice.innerHTML = `10Y: ${tnx != null ? tnx.toFixed(3) + "%" : "--"}${tnxArrow}`;
+  if (els.tnxPrice) els.tnxPrice.innerHTML = `10Y: ${tnx != null ? tnx.toFixed(3) + "%" : "--"}${tnxArrow}`;
   if (tnx != null) prevTnx = tnx;
-
   const oilArrow = arrowFor(oil, prevOil);
-  els.oilPrice.innerHTML = `BZ Oil: ${oil != null ? oil.toFixed(2) : "--"}${oilArrow}`;
+  if (els.oilPrice) els.oilPrice.innerHTML = `BZ Oil: ${oil != null ? oil.toFixed(2) : "--"}${oilArrow}`;
   if (oil != null) prevOil = oil;
-
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  els.timeframe.textContent = `Intraday \u00b7 Last refresh: ${timeStr}`;
+  if (els.timeframe) els.timeframe.textContent = `Intraday \u00b7 Last refresh: ${timeStr}`;
 }
 
 function renderLevels(zg) {
   const { spot, flip, callWall, putWall, regime, netGex } = zg;
-  els.spotLevel.textContent = `ES Spot: ${spot != null ? spot.toLocaleString() : "--"}`;
-  els.flipLevel.textContent = `Gamma Flip: ${flip != null ? flip.toLocaleString() : "--"}`;
-  els.callWall.textContent = `Call Wall: ${callWall != null ? callWall.toLocaleString() : "--"}`;
-  els.putWall.textContent = `Put Wall: ${putWall != null ? putWall.toLocaleString() : "--"}`;
-  els.netGex.textContent = `Net GEX: ${netGex || "--"}`;
-  els.regime.textContent = `Regime: ${regime.toUpperCase()}`;
-  els.regime.className = "level regime " + (regime.includes("short") || regime === "negative" ? "negative" : regime.includes("long") || regime === "positive" ? "positive" : "");
-  els.meta.textContent = "Levels: ZeroGEX free delayed (ES from SPX) \u00b7 Profile: AlgoX SPY \u00d710 \u2192 ES";
+  if (els.spotLevel) els.spotLevel.textContent = `ES Spot: ${spot != null ? spot.toLocaleString() : "--"}`;
+  if (els.flipLevel) els.flipLevel.textContent = `Gamma Flip: ${flip != null ? flip.toLocaleString() : "--"}`;
+  if (els.callWall) els.callWall.textContent = `Call Wall: ${callWall != null ? callWall.toLocaleString() : "--"}`;
+  if (els.putWall) els.putWall.textContent = `Put Wall: ${putWall != null ? putWall.toLocaleString() : "--"}`;
+  if (els.netGex) els.netGex.textContent = `Net GEX: ${netGex || "--"}`;
+  if (els.regime) {
+    els.regime.textContent = `Regime: ${regime.toUpperCase()}`;
+    els.regime.className = "level regime " + (regime === "short" || regime === "negative" ? "negative" : regime === "long" || regime === "positive" ? "positive" : "");
+  }
+  if (els.meta) els.meta.textContent = "Levels: ZeroGEX free delayed (ES from SPX) \u00b7 Profile: AlgoX SPY \u00d710 \u2192 ES";
 }
 
 function renderChart(algox, focusSpot) {
   if (!algox || !algox.strikes || algox.strikes.length === 0) {
-    setStatus("AlgoX profile unavailable (budget or error). Levels still shown.", true);
+    setStatus("AlgoX profile unavailable. Levels still shown.", true);
     return;
   }
 
-  const strikes = algox.strikes.map(s => ({
+  let strikes = algox.strikes.map(s => ({
     strike: toES(s.strike),
     gex: s.net_gex_millions
   })).filter(s => s.strike != null).sort((a, b) => a.strike - b.strike);
 
+  if (focusSpot != null) {
+    const nearMin = focusSpot - NEAR_SPOT_PTS;
+    const nearMax = focusSpot + NEAR_SPOT_PTS;
+    const far = strikes.filter(s => s.strike < nearMin || s.strike > nearMax);
+    const near = strikes.filter(s => s.strike >= nearMin && s.strike <= nearMax);
+    const binned = {};
+    near.forEach(s => {
+      const key = Math.round(s.strike / NEAR_SPOT_STEP) * NEAR_SPOT_STEP;
+      if (!binned[key]) binned[key] = { strike: key, gex: 0, n: 0 };
+      binned[key].gex += s.gex;
+      binned[key].n += 1;
+    });
+    const nearBinned = Object.values(binned).map(b => ({ strike: b.strike, gex: b.gex / b.n }));
+    strikes = [...far, ...nearBinned].sort((a, b) => a.strike - b.strike);
+  }
+
   const labels = strikes.map(s => s.strike.toLocaleString());
   const values = strikes.map(s => s.gex);
-  const colors = values.map(v => v >= 0 ? "#3fb950" : "#f85149");
+  const colors = values.map(v => (v >= 0 ? "#3fb950" : "#f85149"));
 
   let focusIdx = 0;
   if (focusSpot != null) {
@@ -279,8 +285,6 @@ function renderChart(algox, focusSpot) {
       if (diff < bestDiff) { bestDiff = diff; focusIdx = i; }
     });
   }
-  const minIdx = Math.max(0, focusIdx - ZOOM_BARS);
-  const maxIdx = Math.min(strikes.length - 1, focusIdx + ZOOM_BARS);
 
   if (chart) chart.destroy();
 
@@ -318,6 +322,8 @@ function renderChart(algox, focusSpot) {
         data: values,
         backgroundColor: colors,
         borderWidth: 0,
+        categoryPercentage: 0.9,
+        barPercentage: 0.85,
       }]
     },
     plugins: [spotPlugin],
@@ -329,18 +335,13 @@ function renderChart(algox, focusSpot) {
         legend: { display: false },
         title: {
           display: true,
-          text: "ES Gamma Profile (full spread) \u00b7 View zoomed near spot",
+          text: "ES Gamma Profile (full spread) \u00b7 25-pt bars within \u00b1500 of spot",
           color: "#e6edf3"
         },
       },
       scales: {
         x: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
-        y: {
-          min: minIdx,
-          max: maxIdx,
-          ticks: { color: "#8b949e" },
-          grid: { color: "#30363d" }
-        },
+        y: { ticks: { color: "#8b949e", autoSkip: false, font: { size: 9 } }, grid: { color: "#30363d" } },
       },
     },
   });
@@ -352,9 +353,7 @@ function startPolling() {
   pollTimer = setInterval(fetchAll, POLL_INTERVAL);
 }
 
-els.loadBtn.addEventListener("click", startPolling);
-els.tickerInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") startPolling();
-});
+if (els.loadBtn) els.loadBtn.addEventListener("click", startPolling);
+if (els.tickerInput) els.tickerInput.addEventListener("keydown", (e) => { if (e.key === "Enter") startPolling(); });
 
 startPolling();
