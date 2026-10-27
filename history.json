@@ -52,8 +52,8 @@
     "bias": "Straddle / expansion bias"
   },
   {
-    "ts": 1793133360119,
-    "spot": 7759.5,
+    "ts": 1793133398180,
+    "spot": 7759,
     "flip": 7769.75,
     "callWall": 8038.5,
     "putWall": 7737,
