@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=11">
+  <link rel="stylesheet" href="styles.css?v=12">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 1400px; }
@@ -78,17 +78,21 @@
       </details>
     </section>
 
+    <section class="chart-section" style="margin-top: 1.5rem; height: 320px;">
+      <canvas id="metricsChart"></canvas>
+    </section>
+
     <section class="attribution">
       <strong>Data sources & refresh</strong><br>
       Levels (spot, flip, walls, regime, net GEX): <a href="https://zerogex.io" target="_blank">ZeroGEX</a> free delayed (ES modeled from SPX, ~15+ min behind) · refreshed every 60s<br>
       Strike profile: <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> SPY ×10 → ES · full spread, 25-pt bars within ±500 of spot<br>
       Prices (/ES, 10Y, BZ Oil): Yahoo Finance via proxy · refreshed every 60s<br>
-      5-day net GEX history: local + repo snapshots (seeded, then live) · chart y-axis in $B/$M<br>
+      5-day net GEX history + indicator metrics: local + repo snapshots · chart y-axis in $B/$M or %<br>
       <span id="timeframe">Intraday · Last refresh: --</span><br>
       Not financial advice.
     </section>
   </main>
 
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>
