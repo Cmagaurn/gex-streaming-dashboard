@@ -10,6 +10,8 @@ let chart = null;
 let historyChart = null;
 let currentTicker = "ES";
 let pollTimer = null;
+let prevTnx = null;
+let prevOil = null;
 
 const els = {
   tickerInput: document.getElementById("tickerInput"),
@@ -210,10 +212,23 @@ async function fetchAll() {
   }
 }
 
+function arrowFor(current, previous) {
+  if (current == null || previous == null) return "";
+  if (current > previous) return ' <span style="color:#3fb950">\u25B2</span>';
+  if (current < previous) return ' <span style="color:#f85149">\u25BC</span>';
+  return "";
+}
+
 function updateMarketPrices(es, tnx, oil) {
   els.esPrice.textContent = `/ES: ${es != null ? es.toLocaleString() : "--"}`;
-  els.tnxPrice.textContent = `10Y: ${tnx != null ? tnx.toFixed(3) + "%" : "--"}`;
-  els.oilPrice.textContent = `BZ Oil: ${oil != null ? oil.toFixed(2) : "--"}`;
+
+  const tnxArrow = arrowFor(tnx, prevTnx);
+  els.tnxPrice.innerHTML = `10Y: ${tnx != null ? tnx.toFixed(3) + "%" : "--"}${tnxArrow}`;
+  if (tnx != null) prevTnx = tnx;
+
+  const oilArrow = arrowFor(oil, prevOil);
+  els.oilPrice.innerHTML = `BZ Oil: ${oil != null ? oil.toFixed(2) : "--"}${oilArrow}`;
+  if (oil != null) prevOil = oil;
 
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -253,6 +268,36 @@ function renderChart(algox, focusSpot) {
 
   if (chart) chart.destroy();
 
+  const spotPlugin = {
+    id: "spotLine",
+    afterDraw(chartInstance) {
+      if (focusSpot == null) return;
+      const yScale = chartInstance.scales.y;
+      const xScale = chartInstance.scales.x;
+      if (!yScale || !xScale) return;
+      let bestIdx = 0;
+      let bestDiff = Infinity;
+      zoomed.forEach((s, i) => {
+        const diff = Math.abs(s.strike - focusSpot);
+        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+      });
+      const y = yScale.getPixelForValue(bestIdx);
+      const ctx = chartInstance.ctx;
+      ctx.save();
+      ctx.strokeStyle = "#d29922";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(xScale.left, y);
+      ctx.lineTo(xScale.right, y);
+      ctx.stroke();
+      ctx.fillStyle = "#d29922";
+      ctx.font = "11px sans-serif";
+      ctx.fillText("Spot " + focusSpot.toLocaleString(), xScale.left + 6, y - 4);
+      ctx.restore();
+    }
+  };
+
   chart = new Chart(els.canvas, {
     type: "bar",
     data: {
@@ -264,6 +309,7 @@ function renderChart(algox, focusSpot) {
         borderWidth: 0,
       }]
     },
+    plugins: [spotPlugin],
     options: {
       indexAxis: "y",
       responsive: true,
