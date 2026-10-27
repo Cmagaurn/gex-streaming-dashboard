@@ -7,13 +7,23 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=11">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 1400px; }
     @media (max-width: 600px) { .chart-section { height: 1000px; } }
     .attribution { font-size: 0.85rem; line-height: 1.5; color: #8b949e; text-align: center; margin-top: 1.5rem; }
     .attribution a { color: #58a6ff; }
+    .rules-panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; margin-top: 1.5rem; }
+    .rules-panel h2 { margin: 0 0 1rem; font-size: 1.25rem; }
+    .probs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+    .prob { padding: 0.75rem; background: var(--bg); border-radius: 6px; text-align: center; font-weight: 600; }
+    .prob.long { color: #3fb950; }
+    .prob.short { color: #f85149; }
+    .prob.straddle { color: #d29922; }
+    #biasLabel { font-size: 1.1rem; margin-bottom: 1rem; }
+    details { margin-top: 0.5rem; color: #8b949e; font-size: 0.9rem; }
+    details ul { margin: 0.5rem 0; padding-left: 1.25rem; }
   </style>
 </head>
 <body>
@@ -49,6 +59,25 @@
       <canvas id="historyChart"></canvas>
     </section>
 
+    <section class="rules-panel" id="rulesPanel">
+      <h2>Gamma Rules Indicator</h2>
+      <div class="probs">
+        <div class="prob long" id="longProb">Long: --</div>
+        <div class="prob short" id="shortProb">Short: --</div>
+        <div class="prob straddle" id="straddleProb">Straddle: --</div>
+      </div>
+      <div id="biasLabel">Bias: --</div>
+      <details>
+        <summary>Rules used (simple priors — not financial advice)</summary>
+        <ul>
+          <li><strong>Long:</strong> Regime LONG + spot above flip + near put wall + rising/stable 5-day net GEX</li>
+          <li><strong>Short:</strong> Regime SHORT + spot below flip + near call wall + falling 5-day net GEX</li>
+          <li><strong>Straddle:</strong> Spot within ~0.4% of gamma flip + large |net GEX| or unstable regime (flip zone)</li>
+        </ul>
+        <p>Scores are weighted qualitative priors from dealer-gamma mechanics. History accumulates in <code>history.json</code> (GitHub Actions every 30 min) + localStorage. Once you have enough real snapshots you can back-test the scores against subsequent /ES closes and adjust weights.</p>
+      </details>
+    </section>
+
     <section class="attribution">
       <strong>Data sources & refresh</strong><br>
       Levels (spot, flip, walls, regime, net GEX): <a href="https://zerogex.io" target="_blank">ZeroGEX</a> free delayed (ES modeled from SPX, ~15+ min behind) · refreshed every 60s<br>
@@ -60,6 +89,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
