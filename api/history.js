@@ -3,6 +3,7 @@ const GITHUB_REPO = "gex-streaming-dashboard";
 const HISTORY_PATH = "history.json";
 const ZEROGEX_MCP = "https://zerogex.io/mcp";
 const MAX_DAYS = 5;
+const BUCKET_MS = 30 * 60 * 1000; // one point every 30 min → max ~48/day
 
 async function fetchZeroGEX() {
   const res = await fetch(ZEROGEX_MCP, {
@@ -148,13 +149,17 @@ export default async function handler(req, res) {
 
     const cutoff = Date.now() - MAX_DAYS * 86400000;
     history = history.filter(e => e && e.ts >= cutoff);
-    const by15 = {};
+
+    // Keep one point per 30-minute bucket (latest in each bucket wins)
+    const byBucket = {};
     history.forEach(e => {
-      const key = Math.floor(e.ts / (15 * 60 * 1000));
-      by15[key] = e;
+      const key = Math.floor(e.ts / BUCKET_MS);
+      if (!byBucket[key] || e.ts > byBucket[key].ts) byBucket[key] = e;
     });
-    history = Object.values(by15).sort((a, b) => a.ts - b.ts);
-    if (history.length > 500) history = history.slice(-500);
+    history = Object.values(byBucket).sort((a, b) => a.ts - b.ts);
+
+    // Cap at ~5 days * 48 points
+    if (history.length > 250) history = history.slice(-250);
 
     const content = Buffer.from(JSON.stringify(history, null, 2)).toString("base64");
     const putRes = await fetch(
