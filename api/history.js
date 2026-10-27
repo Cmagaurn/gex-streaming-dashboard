@@ -4,8 +4,8 @@ const HISTORY_PATH = "history.json";
 const ZEROGEX_MCP = "https://zerogex.io/mcp";
 const MAX_DAYS = 5;
 const BUCKET_MS = 5 * 60 * 1000;
+const SYMBOLS = ["ES", "SPX", "SPY", "NQ", "NDX", "QQQ"];
 
-// Collect only Sunday 15:00 CDT through Friday 20:00 CDT (America/Chicago)
 function isWithinCollectionWindow(now = new Date()) {
   const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Chicago",
@@ -16,22 +16,17 @@ function isWithinCollectionWindow(now = new Date()) {
   });
   const parts = fmt.formatToParts(now);
   const get = (t) => parts.find((p) => p.type === t)?.value;
-  const weekday = get("weekday"); // Sun, Mon, Tue, Wed, Thu, Fri, Sat
+  const weekday = get("weekday");
   const hour = parseInt(get("hour"), 10);
   const minute = parseInt(get("minute"), 10);
   const minutesOfDay = hour * 60 + minute;
-
-  // Sunday: from 15:00 onward
   if (weekday === "Sun") return minutesOfDay >= 15 * 60;
-  // Monday–Thursday: all day
   if (["Mon", "Tue", "Wed", "Thu"].includes(weekday)) return true;
-  // Friday: until 20:00
   if (weekday === "Fri") return minutesOfDay < 20 * 60;
-  // Saturday: closed
   return false;
 }
 
-async function fetchZeroGEX() {
+async function fetchZeroGEX(symbol) {
   const res = await fetch(ZEROGEX_MCP, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -39,10 +34,10 @@ async function fetchZeroGEX() {
       jsonrpc: "2.0",
       id: 1,
       method: "tools/call",
-      params: { name: "get_gamma_levels", arguments: { symbol: "ES" } }
+      params: { name: "get_gamma_levels", arguments: { symbol } }
     })
   });
-  if (!res.ok) throw new Error(`ZeroGEX ${res.status}`);
+  if (!res.ok) throw new Error(`ZeroGEX ${symbol} ${res.status}`);
   const json = await res.json();
   const text = json.result?.content?.[0]?.text || "";
   return parseZeroGEX(text);
@@ -156,39 +151,52 @@ export default async function handler(req, res) {
       return res.status(200).json(history);
     }
 
-    // Enforce collection window: Sun 15:00 CDT – Fri 20:00 CDT
     if (!isWithinCollectionWindow()) {
       return res.status(200).json({ ok: true, skipped: true, reason: "Outside collection window (Sun 3PM CDT – Fri 8PM CDT)" });
     }
 
-    const zg = await fetchZeroGEX();
-    const scores = computeScores(zg, history);
-    const entry = {
-      ts: Date.now(),
-      spot: zg.spot,
-      flip: zg.flip,
-      callWall: zg.callWall,
-      putWall: zg.putWall,
-      netGex: parseNetGex(zg.netGex),
-      regime: zg.regime,
-      long: scores.long,
-      short: scores.short,
-      straddle: scores.straddle,
-      bias: scores.bias,
-    };
-    history.push(entry);
+    const now = Date.now();
+    const newEntries = [];
 
-    const cutoff = Date.now() - MAX_DAYS * 86400000;
+    for (const symbol of SYMBOLS) {
+      try {
+        const zg = await fetchZeroGEX(symbol);
+        const symbolHist = history.filter(e => e.symbol === symbol || (!e.symbol && symbol === "ES"));
+        const scores = computeScores(zg, symbolHist);
+        const entry = {
+          ts: now,
+          symbol,
+          spot: zg.spot,
+          flip: zg.flip,
+          callWall: zg.callWall,
+          putWall: zg.putWall,
+          netGex: parseNetGex(zg.netGex),
+          regime: zg.regime,
+          long: scores.long,
+          short: scores.short,
+          straddle: scores.straddle,
+          bias: scores.bias,
+        };
+        history.push(entry);
+        newEntries.push(entry);
+      } catch (e) {
+        console.warn(`Failed ${symbol}:`, e.message);
+      }
+    }
+
+    const cutoff = now - MAX_DAYS * 86400000;
     history = history.filter(e => e && e.ts >= cutoff);
 
+    // Bucket per symbol per 5 min
     const byBucket = {};
     history.forEach(e => {
-      const key = Math.floor(e.ts / BUCKET_MS);
+      const sym = e.symbol || "ES";
+      const key = `${sym}:${Math.floor(e.ts / BUCKET_MS)}`;
       if (!byBucket[key] || e.ts > byBucket[key].ts) byBucket[key] = e;
     });
     history = Object.values(byBucket).sort((a, b) => a.ts - b.ts);
 
-    if (history.length > 400) history = history.slice(-400);
+    if (history.length > 2400) history = history.slice(-2400);
 
     const content = Buffer.from(JSON.stringify(history, null, 2)).toString("base64");
     const putRes = await fetch(
@@ -212,7 +220,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "GitHub update failed", details: err.slice(0, 300) });
     }
 
-    return res.status(200).json({ ok: true, count: history.length, latest: entry });
+    return res.status(200).json({ ok: true, count: history.length, added: newEntries.length });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ error: err.message || String(err) });
