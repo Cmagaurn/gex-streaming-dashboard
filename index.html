@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=16">
+  <link rel="stylesheet" href="styles.css?v=17">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 1400px; }
@@ -24,14 +24,22 @@
     #biasLabel { font-size: 1.1rem; margin-bottom: 1rem; }
     details { margin-top: 0.5rem; color: #8b949e; font-size: 0.9rem; }
     details ul { margin: 0.5rem 0; padding-left: 1.25rem; }
+    select#tickerSelect { padding: 0.4rem 0.6rem; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border); }
   </style>
 </head>
 <body>
   <header>
     <h1>GEX Streaming Dashboard</h1>
-    <p class="subtitle">Hybrid: ZeroGEX ES levels + AlgoX SPY strike profile (×10 → ES) · Full spread · 25-pt bars within ±500 of spot · 5-day net GEX history · Polls every 60s</p>
+    <p class="subtitle">ZeroGEX free symbols: SPX, SPY, QQQ, NDX, ES, NQ · Hybrid profile · Full spread · 25-pt bars near spot · 5-day history · Polls every 60s</p>
     <div class="controls">
-      <input id="tickerInput" type="text" placeholder="ES (default), SPX, NQ..." value="ES">
+      <select id="tickerSelect">
+        <option value="ES" selected>ES (E-mini S&P)</option>
+        <option value="SPX">SPX</option>
+        <option value="SPY">SPY</option>
+        <option value="NQ">NQ (E-mini Nasdaq)</option>
+        <option value="NDX">NDX</option>
+        <option value="QQQ">QQQ</option>
+      </select>
       <button id="loadBtn">Load</button>
       <span id="status">Ready</span>
     </div>
@@ -39,13 +47,13 @@
 
   <main>
     <section class="levels-card">
-      <div class="level" id="spotLevel">ES Spot: --</div>
+      <div class="level" id="spotLevel">Spot: --</div>
       <div class="level" id="flipLevel">Gamma Flip: --</div>
       <div class="level" id="callWall">Call Wall: --</div>
       <div class="level" id="putWall">Put Wall: --</div>
       <div class="level" id="netGex">Net GEX: --</div>
       <div class="level regime" id="regime">Regime: --</div>
-      <div class="level" id="esPrice">/ES: --</div>
+      <div class="level" id="esPrice">Price: --</div>
       <div class="level" id="tnxPrice">10Y: --</div>
       <div class="level" id="oilPrice">BZ Oil: --</div>
       <div class="meta" id="meta">Updated: -- · Age: --</div>
@@ -70,11 +78,11 @@
       <details>
         <summary>Rules used (simple priors — not financial advice)</summary>
         <ul>
-          <li><strong>Long:</strong> Regime LONG + spot above flip + near put wall + rising/stable 5-day net GEX</li>
-          <li><strong>Short:</strong> Regime SHORT + spot below flip + near call wall + falling 5-day net GEX</li>
-          <li><strong>Straddle:</strong> Spot within ~0.4% of gamma flip + large |net GEX| or unstable regime (flip zone)</li>
+          <li><strong>Long:</strong> Regime LONG + spot above flip + near put wall + rising/stable net GEX</li>
+          <li><strong>Short:</strong> Regime SHORT + spot below flip + near call wall + falling net GEX</li>
+          <li><strong>Straddle:</strong> Spot within ~0.4% of gamma flip + large |net GEX| or unstable regime</li>
         </ul>
-        <p>Scores are weighted qualitative priors from dealer-gamma mechanics. History is read live from the shared store so desktop and mobile see the same metrics. New points are added every 15 min while the page is open (and once daily via cron).</p>
+        <p>Scores are qualitative priors. History is ES-focused (cron collects ES). Selecting another ticker loads its live ZeroGEX levels and profile.</p>
       </details>
     </section>
 
@@ -84,21 +92,15 @@
 
     <section class="attribution">
       <strong>Data sources & refresh</strong><br>
-      Levels (spot, flip, walls, regime, net GEX): <a href="https://zerogex.io" target="_blank">ZeroGEX</a> free delayed (ES modeled from SPX options, ~15+ min behind) · app polls every 60s<br>
-      Strike profile: <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> SPY ×10 → ES · full spread, 25-pt bars within ±500 of spot<br>
-      Prices (/ES, 10Y, BZ Oil): Yahoo Finance via proxy · app polls every 60s<br>
-      5-day net GEX history + indicator metrics: live from shared store · page-open posts every 15 min + daily cron · same on every device<br>
-      <br>
-      <strong>When data is flowing vs closed</strong><br>
-      • <strong>/ES futures</strong> (Yahoo price): nearly 24/5 — Sunday ~6:00 PM ET through Friday ~5:00 PM ET, with a brief daily maintenance break (~5:00–6:00 PM ET). Outside these hours quotes may be stale or unavailable.<br>
-      • <strong>SPX options / ZeroGEX levels & AlgoX SPY profile</strong>: most useful during US cash-equity hours (regular session ~9:30 AM–4:00 PM ET). Outside RTH the free delayed feeds may freeze, lag more, or return the last available snapshot. Extended hours exist but gamma modeling is thinner.<br>
-      • <strong>10Y & BZ Oil</strong> (Yahoo): follow their respective futures/cash sessions; typically available when those markets are open.<br>
-      • History collection continues on its schedule regardless of market hours, storing whatever the sources return (including stale values when closed).<br>
+      Levels: <a href="https://zerogex.io" target="_blank">ZeroGEX</a> free delayed (~15 min) for SPX, SPY, QQQ, NDX, ES, NQ · app polls every 60s<br>
+      Strike profile: <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> (SPY for ES/SPX/SPY, QQQ for NQ/NDX/QQQ)<br>
+      Prices: Yahoo Finance via proxy · 10Y & BZ Oil always shown<br>
+      History: shared ES store · external cron every 5 min (Sun 3PM–Fri 8PM CDT) + page-open posts<br>
       <span id="timeframe">Intraday · Last refresh: --</span><br>
       Not financial advice.
     </section>
   </main>
 
-  <script src="app.js?v=16"></script>
+  <script src="app.js?v=17"></script>
 </body>
 </html>
