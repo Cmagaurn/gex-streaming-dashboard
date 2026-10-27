@@ -9,6 +9,7 @@ const NEAR_SPOT_STEP = 25;
 
 let chart = null;
 let historyChart = null;
+let metricsChart = null;
 let pollTimer = null;
 let prevTnx = null;
 let prevOil = null;
@@ -26,6 +27,7 @@ const els = {
   meta: document.getElementById("meta"),
   canvas: document.getElementById("gexChart"),
   historyCanvas: document.getElementById("historyChart"),
+  metricsCanvas: document.getElementById("metricsChart"),
   esPrice: document.getElementById("esPrice"),
   tnxPrice: document.getElementById("tnxPrice"),
   oilPrice: document.getElementById("oilPrice"),
@@ -117,14 +119,20 @@ function formatGex(v) {
   return sign + "$" + abs.toLocaleString();
 }
 
-function saveHistory(zg) {
+function saveHistory(zg, scores) {
   try {
     const entry = {
       ts: Date.now(),
       spot: zg.spot,
       flip: zg.flip,
+      callWall: zg.callWall,
+      putWall: zg.putWall,
       netGex: parseNetGex(zg.netGex),
       regime: zg.regime,
+      long: scores?.long ?? null,
+      short: scores?.short ?? null,
+      straddle: scores?.straddle ?? null,
+      bias: scores?.bias ?? null,
     };
     let hist = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
     hist.push(entry);
@@ -212,6 +220,41 @@ function renderHistoryChart(hist) {
   });
 }
 
+function renderMetricsChart(hist) {
+  if (!els.metricsCanvas) return;
+  const withScores = hist.filter(e => e.long != null || e.short != null || e.straddle != null);
+  const labels = withScores.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
+  const longVals = withScores.map(e => e.long ?? null);
+  const shortVals = withScores.map(e => e.short ?? null);
+  const straddleVals = withScores.map(e => e.straddle ?? null);
+
+  if (metricsChart) metricsChart.destroy();
+
+  metricsChart = new Chart(els.metricsCanvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "Long %", data: longVals, borderColor: "#3fb950", backgroundColor: "rgba(63,185,80,0.1)", tension: 0.2, pointRadius: 2, fill: false },
+        { label: "Short %", data: shortVals, borderColor: "#f85149", backgroundColor: "rgba(248,81,73,0.1)", tension: 0.2, pointRadius: 2, fill: false },
+        { label: "Straddle %", data: straddleVals, borderColor: "#d29922", backgroundColor: "rgba(210,153,34,0.1)", tension: 0.2, pointRadius: 2, fill: false },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: "#e6edf3" } },
+        title: { display: true, text: `Indicator Metrics History (${withScores.length} points)`, color: "#e6edf3" },
+      },
+      scales: {
+        x: { ticks: { color: "#8b949e", maxTicksLimit: 12 }, grid: { color: "#30363d" } },
+        y: { min: 0, max: 100, ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
+      },
+    },
+  });
+}
+
 function computeScores(zg, hist) {
   const { spot, flip, callWall, putWall, regime } = zg;
   const net = parseNetGex(zg.netGex);
@@ -225,7 +268,6 @@ function computeScores(zg, hist) {
   const nearPut = putWall != null && Math.abs(spot - putWall) < 60;
   const nearCall = callWall != null && Math.abs(spot - callWall) < 60;
 
-  // Simple net GEX slope from last few points
   let slopeUp = false;
   let slopeDown = false;
   if (hist && hist.length >= 3) {
@@ -257,7 +299,6 @@ function computeScores(zg, hist) {
   if (nearFlip || (regime !== "long" && regime !== "short")) straddle += 15;
   straddle = Math.min(100, Math.max(0, straddle));
 
-  // Normalize so they don't all look high
   const total = long + short + straddle || 1;
   const longN = Math.round((long / total) * 100);
   const shortN = Math.round((short / total) * 100);
@@ -277,6 +318,7 @@ function renderIndicator(zg, hist) {
   if (els.shortProb) els.shortProb.textContent = `Short: ${scores.short}%`;
   if (els.straddleProb) els.straddleProb.textContent = `Straddle: ${scores.straddle}%`;
   if (els.biasLabel) els.biasLabel.textContent = `Bias: ${scores.bias}`;
+  return scores;
 }
 
 async function fetchAll() {
@@ -292,11 +334,12 @@ async function fetchAll() {
 
     renderLevels(zg);
     updateMarketPrices(esPrice, tnx, oil);
-    renderChart(algox, zg.spot || esPrice);
     const hist = await loadHistory();
-    saveHistory(zg);
+    const scores = renderIndicator(zg, hist);
+    saveHistory(zg, scores);
+    renderChart(algox, zg.spot || esPrice, zg);
     renderHistoryChart(hist);
-    renderIndicator(zg, hist);
+    renderMetricsChart(hist);
     setStatus("Live \u00b7 ZeroGEX levels + AlgoX profile (ES \u00d710)");
   } catch (err) {
     console.error(err);
@@ -338,7 +381,7 @@ function renderLevels(zg) {
   if (els.meta) els.meta.textContent = "Levels: ZeroGEX free delayed (ES from SPX) \u00b7 Profile: AlgoX SPY \u00d710 \u2192 ES";
 }
 
-function renderChart(algox, focusSpot) {
+function renderChart(algox, focusSpot, zg) {
   if (!algox || !algox.strikes || algox.strikes.length === 0) {
     setStatus("AlgoX profile unavailable. Levels still shown.", true);
     return;
@@ -369,39 +412,50 @@ function renderChart(algox, focusSpot) {
   const values = strikes.map(s => s.gex);
   const colors = values.map(v => (v >= 0 ? "#3fb950" : "#f85149"));
 
-  let focusIdx = 0;
-  if (focusSpot != null) {
-    let bestDiff = Infinity;
+  function findIdx(target) {
+    if (target == null) return -1;
+    let best = 0, bestDiff = Infinity;
     strikes.forEach((s, i) => {
-      const diff = Math.abs(s.strike - focusSpot);
-      if (diff < bestDiff) { bestDiff = diff; focusIdx = i; }
+      const d = Math.abs(s.strike - target);
+      if (d < bestDiff) { bestDiff = d; best = i; }
     });
+    return best;
   }
+  const focusIdx = findIdx(focusSpot);
+  const flipIdx = findIdx(zg?.flip);
+  const callIdx = findIdx(zg?.callWall);
+  const putIdx = findIdx(zg?.putWall);
 
   if (chart) chart.destroy();
 
-  const spotPlugin = {
-    id: "spotLine",
+  const levelsPlugin = {
+    id: "levelsLines",
     afterDraw(chartInstance) {
-      if (focusSpot == null) return;
       const yScale = chartInstance.scales.y;
       const xScale = chartInstance.scales.x;
       if (!yScale || !xScale) return;
-      const y = yScale.getPixelForValue(focusIdx);
-      if (y < yScale.top || y > yScale.bottom) return;
       const ctx = chartInstance.ctx;
-      ctx.save();
-      ctx.strokeStyle = "#d29922";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(xScale.left, y);
-      ctx.lineTo(xScale.right, y);
-      ctx.stroke();
-      ctx.fillStyle = "#d29922";
-      ctx.font = "11px sans-serif";
-      ctx.fillText("Spot " + focusSpot.toLocaleString(), xScale.left + 6, y - 4);
-      ctx.restore();
+      const draw = (idx, color, label) => {
+        if (idx < 0) return;
+        const y = yScale.getPixelForValue(idx);
+        if (y < yScale.top || y > yScale.bottom) return;
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(xScale.left, y);
+        ctx.lineTo(xScale.right, y);
+        ctx.stroke();
+        ctx.fillStyle = color;
+        ctx.font = "11px sans-serif";
+        ctx.fillText(label, xScale.left + 6, y - 4);
+        ctx.restore();
+      };
+      draw(focusIdx, "#d29922", "Spot " + (focusSpot != null ? focusSpot.toLocaleString() : ""));
+      draw(flipIdx, "#58a6ff", "Flip " + (zg?.flip != null ? zg.flip.toLocaleString() : ""));
+      draw(callIdx, "#3fb950", "Call " + (zg?.callWall != null ? zg.callWall.toLocaleString() : ""));
+      draw(putIdx, "#f85149", "Put " + (zg?.putWall != null ? zg.putWall.toLocaleString() : ""));
     }
   };
 
@@ -418,7 +472,7 @@ function renderChart(algox, focusSpot) {
         barPercentage: 0.85,
       }]
     },
-    plugins: [spotPlugin],
+    plugins: [levelsPlugin],
     options: {
       indexAxis: "y",
       responsive: true,
