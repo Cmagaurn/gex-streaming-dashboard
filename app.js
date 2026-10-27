@@ -6,6 +6,15 @@ const MAX_HISTORY_DAYS = 5;
 const NEAR_SPOT_PTS = 500;
 const NEAR_SPOT_STEP = 25;
 const HISTORY_POST_INTERVAL = 30 * 60 * 1000;
+const ALL_SYMBOLS = ["ES", "SPX", "SPY", "NQ", "NDX", "QQQ"];
+const COLORS = {
+  ES: "#58a6ff",
+  SPX: "#3fb950",
+  SPY: "#d29922",
+  NQ: "#f85149",
+  NDX: "#bc8cff",
+  QQQ: "#79c0ff",
+};
 
 const YAHOO_MAP = {
   ES: "ES=F",
@@ -37,6 +46,7 @@ const SCALE_MAP = {
 let chart = null;
 let historyChart = null;
 let metricsChart = null;
+let multiChart = null;
 let pollTimer = null;
 let prevTnx = null;
 let prevOil = null;
@@ -57,6 +67,7 @@ const els = {
   canvas: document.getElementById("gexChart"),
   historyCanvas: document.getElementById("historyChart"),
   metricsCanvas: document.getElementById("metricsChart"),
+  multiCanvas: document.getElementById("multiHistoryChart"),
   esPrice: document.getElementById("esPrice"),
   tnxPrice: document.getElementById("tnxPrice"),
   oilPrice: document.getElementById("oilPrice"),
@@ -184,10 +195,15 @@ async function postHistorySnapshot() {
   }
 }
 
-function renderHistoryChart(hist) {
+function filterHist(hist, symbol) {
+  return hist.filter(e => (e.symbol || "ES") === symbol);
+}
+
+function renderHistoryChart(hist, symbol) {
   if (!els.historyCanvas) return;
-  const labels = hist.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
-  const values = hist.map(e => e.netGex);
+  const filtered = filterHist(hist, symbol);
+  const labels = filtered.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
+  const values = filtered.map(e => e.netGex);
   const colors = values.map(v => (v >= 0 ? "#3fb950" : "#f85149"));
 
   if (historyChart) historyChart.destroy();
@@ -199,7 +215,7 @@ function renderHistoryChart(hist) {
       datasets: [{
         label: "Net GEX",
         data: values,
-        borderColor: "#58a6ff",
+        borderColor: COLORS[symbol] || "#58a6ff",
         backgroundColor: "rgba(88,166,255,0.1)",
         fill: true,
         tension: 0.2,
@@ -212,7 +228,7 @@ function renderHistoryChart(hist) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        title: { display: true, text: `5-Day Net GEX Trend — ES (${hist.length} points)`, color: "#e6edf3" },
+        title: { display: true, text: `5-Day Net GEX Trend — ${symbol} (${filtered.length} points)`, color: "#e6edf3" },
         tooltip: {
           callbacks: {
             label: (ctx) => "Net GEX: " + formatGex(ctx.parsed.y)
@@ -233,13 +249,13 @@ function renderHistoryChart(hist) {
   });
 }
 
-function renderMetricsChart(hist) {
+function renderMetricsChart(hist, symbol) {
   if (!els.metricsCanvas) return;
-  const withScores = hist.filter(e => e.long != null || e.short != null || e.straddle != null);
-  const labels = withScores.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
-  const longVals = withScores.map(e => e.long ?? null);
-  const shortVals = withScores.map(e => e.short ?? null);
-  const straddleVals = withScores.map(e => e.straddle ?? null);
+  const filtered = filterHist(hist, symbol).filter(e => e.long != null || e.short != null || e.straddle != null);
+  const labels = filtered.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
+  const longVals = filtered.map(e => e.long ?? null);
+  const shortVals = filtered.map(e => e.short ?? null);
+  const straddleVals = filtered.map(e => e.straddle ?? null);
 
   if (metricsChart) metricsChart.destroy();
 
@@ -258,11 +274,62 @@ function renderMetricsChart(hist) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: true, labels: { color: "#e6edf3" } },
-        title: { display: true, text: `Indicator Metrics History — ES (${withScores.length} points)`, color: "#e6edf3" },
+        title: { display: true, text: `Indicator Metrics History — ${symbol} (${filtered.length} points)`, color: "#e6edf3" },
       },
       scales: {
         x: { ticks: { color: "#8b949e", maxTicksLimit: 12 }, grid: { color: "#30363d" } },
         y: { min: 0, max: 100, ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
+      },
+    },
+  });
+}
+
+function renderMultiChart(hist) {
+  if (!els.multiCanvas) return;
+  const bySym = {};
+  ALL_SYMBOLS.forEach(s => { bySym[s] = hist.filter(e => (e.symbol || "ES") === s); });
+
+  // Build a shared time axis from all points
+  const allTs = [...new Set(hist.map(e => e.ts))].sort((a, b) => a - b);
+  const labels = allTs.map(ts => new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
+
+  const datasets = ALL_SYMBOLS.map(sym => {
+    const points = bySym[sym];
+    const map = Object.fromEntries(points.map(e => [e.ts, e.netGex]));
+    return {
+      label: sym,
+      data: allTs.map(ts => map[ts] ?? null),
+      borderColor: COLORS[sym],
+      backgroundColor: "transparent",
+      tension: 0.2,
+      pointRadius: 2,
+      spanGaps: true,
+    };
+  });
+
+  if (multiChart) multiChart.destroy();
+
+  multiChart = new Chart(els.multiCanvas, {
+    type: "line",
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: "#e6edf3" } },
+        title: { display: true, text: "5-Day Net GEX — All Tickers", color: "#e6edf3" },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${formatGex(ctx.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: "#8b949e", maxTicksLimit: 14 }, grid: { color: "#30363d" } },
+        y: {
+          ticks: { color: "#8b949e", callback: (v) => formatGex(v) },
+          grid: { color: "#30363d" }
+        },
       },
     },
   });
@@ -334,6 +401,24 @@ function renderIndicator(zg, hist) {
   return scores;
 }
 
+async function updateTickerGexBoxes() {
+  const results = await Promise.allSettled(ALL_SYMBOLS.map(s => fetchZeroGEX(s)));
+  results.forEach((r, i) => {
+    const sym = ALL_SYMBOLS[i];
+    const box = document.getElementById(`gex-${sym}`);
+    if (!box) return;
+    const valEl = box.querySelector(".val");
+    if (r.status === "fulfilled" && r.value && r.value.netGex) {
+      const n = parseNetGex(r.value.netGex);
+      valEl.textContent = formatGex(n);
+      valEl.style.color = n >= 0 ? "#3fb950" : "#f85149";
+    } else {
+      valEl.textContent = "--";
+      valEl.style.color = "#8b949e";
+    }
+  });
+}
+
 async function fetchAll() {
   const symbol = (els.tickerSelect && els.tickerSelect.value) || "ES";
   currentSymbol = symbol;
@@ -351,10 +436,13 @@ async function fetchAll() {
     renderLevels(zg, symbol);
     updateMarketPrices(price, tnx, oil, symbol);
     const hist = await loadHistory();
-    renderIndicator(zg, hist);
+    const symbolHist = filterHist(hist, symbol);
+    renderIndicator(zg, symbolHist);
     renderChart(algox, zg.spot || price, zg, symbol);
-    renderHistoryChart(hist);
-    renderMetricsChart(hist);
+    renderHistoryChart(hist, symbol);
+    renderMetricsChart(hist, symbol);
+    renderMultiChart(hist);
+    updateTickerGexBoxes();
     postHistorySnapshot();
     setStatus(`Live \u00b7 ${symbol} ZeroGEX + AlgoX`);
   } catch (err) {
