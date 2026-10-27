@@ -5,7 +5,34 @@ const ES_MULTIPLIER = 10;
 const MAX_HISTORY_DAYS = 5;
 const NEAR_SPOT_PTS = 500;
 const NEAR_SPOT_STEP = 25;
-const HISTORY_POST_INTERVAL = 30 * 60 * 1000; // 30 min → max ~48 points/day
+const HISTORY_POST_INTERVAL = 30 * 60 * 1000;
+
+const YAHOO_MAP = {
+  ES: "ES=F",
+  SPX: "^GSPC",
+  SPY: "SPY",
+  NQ: "NQ=F",
+  NDX: "^NDX",
+  QQQ: "QQQ",
+};
+
+const ALGOX_MAP = {
+  ES: "SPY",
+  SPX: "SPY",
+  SPY: "SPY",
+  NQ: "QQQ",
+  NDX: "QQQ",
+  QQQ: "QQQ",
+};
+
+const SCALE_MAP = {
+  ES: 10,
+  SPX: 10,
+  SPY: 1,
+  NQ: 40,
+  NDX: 40,
+  QQQ: 1,
+};
 
 let chart = null;
 let historyChart = null;
@@ -14,9 +41,10 @@ let pollTimer = null;
 let prevTnx = null;
 let prevOil = null;
 let lastHistoryPost = 0;
+let currentSymbol = "ES";
 
 const els = {
-  tickerInput: document.getElementById("tickerInput"),
+  tickerSelect: document.getElementById("tickerSelect"),
   loadBtn: document.getElementById("loadBtn"),
   status: document.getElementById("status"),
   spotLevel: document.getElementById("spotLevel"),
@@ -93,14 +121,17 @@ function parseZeroGEX(text) {
   };
 }
 
-async function fetchAlgoXSPY() {
-  const res = await fetch(`${ALGOX_BASE}/SPY?strikes=1`);
+async function fetchAlgoX(symbol) {
+  const algoxSym = ALGOX_MAP[symbol] || "SPY";
+  const res = await fetch(`${ALGOX_BASE}/${algoxSym}?strikes=1`);
   if (!res.ok) throw new Error(`AlgoX ${res.status}`);
   return res.json();
 }
 
-function toES(value) {
-  return value == null ? null : Math.round(value * ES_MULTIPLIER * 100) / 100;
+function scaleStrike(value, symbol) {
+  if (value == null) return null;
+  const mult = SCALE_MAP[symbol] || 1;
+  return Math.round(value * mult * 100) / 100;
 }
 
 function parseNetGex(raw) {
@@ -181,7 +212,7 @@ function renderHistoryChart(hist) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        title: { display: true, text: `5-Day Net GEX Trend (${hist.length} points)`, color: "#e6edf3" },
+        title: { display: true, text: `5-Day Net GEX Trend — ES (${hist.length} points)`, color: "#e6edf3" },
         tooltip: {
           callbacks: {
             label: (ctx) => "Net GEX: " + formatGex(ctx.parsed.y)
@@ -227,7 +258,7 @@ function renderMetricsChart(hist) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: true, labels: { color: "#e6edf3" } },
-        title: { display: true, text: `Indicator Metrics History (${withScores.length} points)`, color: "#e6edf3" },
+        title: { display: true, text: `Indicator Metrics History — ES (${withScores.length} points)`, color: "#e6edf3" },
       },
       scales: {
         x: { ticks: { color: "#8b949e", maxTicksLimit: 12 }, grid: { color: "#30363d" } },
@@ -304,25 +335,28 @@ function renderIndicator(zg, hist) {
 }
 
 async function fetchAll() {
-  setStatus("Loading ZeroGEX levels + AlgoX profile + markets\u2026");
+  const symbol = (els.tickerSelect && els.tickerSelect.value) || "ES";
+  currentSymbol = symbol;
+  setStatus(`Loading ${symbol} levels + profile + markets\u2026`);
   try {
-    const [zg, algox, esPrice, tnx, oil] = await Promise.all([
-      fetchZeroGEX("ES"),
-      fetchAlgoXSPY().catch(() => null),
-      fetchYahoo("ES=F").catch(() => null),
+    const yahooSym = YAHOO_MAP[symbol] || symbol;
+    const [zg, algox, price, tnx, oil] = await Promise.all([
+      fetchZeroGEX(symbol),
+      fetchAlgoX(symbol).catch(() => null),
+      fetchYahoo(yahooSym).catch(() => null),
       fetchYahoo("^TNX").catch(() => null),
       fetchYahoo("BZ=F").catch(() => null),
     ]);
 
-    renderLevels(zg);
-    updateMarketPrices(esPrice, tnx, oil);
+    renderLevels(zg, symbol);
+    updateMarketPrices(price, tnx, oil, symbol);
     const hist = await loadHistory();
     renderIndicator(zg, hist);
-    renderChart(algox, zg.spot || esPrice, zg);
+    renderChart(algox, zg.spot || price, zg, symbol);
     renderHistoryChart(hist);
     renderMetricsChart(hist);
     postHistorySnapshot();
-    setStatus("Live \u00b7 ZeroGEX levels + AlgoX profile (ES \u00d710)");
+    setStatus(`Live \u00b7 ${symbol} ZeroGEX + AlgoX`);
   } catch (err) {
     console.error(err);
     setStatus(`Error: ${err.message}`, true);
@@ -336,8 +370,8 @@ function arrowFor(current, previous) {
   return "";
 }
 
-function updateMarketPrices(es, tnx, oil) {
-  if (els.esPrice) els.esPrice.textContent = `/ES: ${es != null ? es.toLocaleString() : "--"}`;
+function updateMarketPrices(price, tnx, oil, symbol) {
+  if (els.esPrice) els.esPrice.textContent = `${symbol}: ${price != null ? price.toLocaleString() : "--"}`;
   const tnxArrow = arrowFor(tnx, prevTnx);
   if (els.tnxPrice) els.tnxPrice.innerHTML = `10Y: ${tnx != null ? tnx.toFixed(3) + "%" : "--"}${tnxArrow}`;
   if (tnx != null) prevTnx = tnx;
@@ -349,9 +383,9 @@ function updateMarketPrices(es, tnx, oil) {
   if (els.timeframe) els.timeframe.textContent = `Intraday \u00b7 Last refresh: ${timeStr}`;
 }
 
-function renderLevels(zg) {
+function renderLevels(zg, symbol) {
   const { spot, flip, callWall, putWall, regime, netGex } = zg;
-  if (els.spotLevel) els.spotLevel.textContent = `ES Spot: ${spot != null ? spot.toLocaleString() : "--"}`;
+  if (els.spotLevel) els.spotLevel.textContent = `${symbol} Spot: ${spot != null ? spot.toLocaleString() : "--"}`;
   if (els.flipLevel) els.flipLevel.textContent = `Gamma Flip: ${flip != null ? flip.toLocaleString() : "--"}`;
   if (els.callWall) els.callWall.textContent = `Call Wall: ${callWall != null ? callWall.toLocaleString() : "--"}`;
   if (els.putWall) els.putWall.textContent = `Put Wall: ${putWall != null ? putWall.toLocaleString() : "--"}`;
@@ -360,17 +394,17 @@ function renderLevels(zg) {
     els.regime.textContent = `Regime: ${regime.toUpperCase()}`;
     els.regime.className = "level regime " + (regime === "short" || regime === "negative" ? "negative" : regime === "long" || regime === "positive" ? "positive" : "");
   }
-  if (els.meta) els.meta.textContent = "Levels: ZeroGEX free delayed (ES from SPX) \u00b7 Profile: AlgoX SPY \u00d710 \u2192 ES";
+  if (els.meta) els.meta.textContent = `Levels: ZeroGEX free delayed (${symbol}) \u00b7 Profile: AlgoX`;
 }
 
-function renderChart(algox, focusSpot, zg) {
+function renderChart(algox, focusSpot, zg, symbol) {
   if (!algox || !algox.strikes || algox.strikes.length === 0) {
     setStatus("AlgoX profile unavailable. Levels still shown.", true);
     return;
   }
 
   let strikes = algox.strikes.map(s => ({
-    strike: toES(s.strike),
+    strike: scaleStrike(s.strike, symbol),
     gex: s.net_gex_millions
   })).filter(s => s.strike != null).sort((a, b) => a.strike - b.strike);
 
@@ -463,7 +497,7 @@ function renderChart(algox, focusSpot, zg) {
         legend: { display: false },
         title: {
           display: true,
-          text: "ES Gamma Profile (full spread) \u00b7 25-pt bars within \u00b1500 of spot",
+          text: `${symbol} Gamma Profile (full spread) \u00b7 25-pt bars within \u00b1500 of spot`,
           color: "#e6edf3"
         },
       },
@@ -482,6 +516,6 @@ function startPolling() {
 }
 
 if (els.loadBtn) els.loadBtn.addEventListener("click", startPolling);
-if (els.tickerInput) els.tickerInput.addEventListener("keydown", (e) => { if (e.key === "Enter") startPolling(); });
+if (els.tickerSelect) els.tickerSelect.addEventListener("change", startPolling);
 
 startPolling();
