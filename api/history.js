@@ -3,7 +3,33 @@ const GITHUB_REPO = "gex-streaming-dashboard";
 const HISTORY_PATH = "history.json";
 const ZEROGEX_MCP = "https://zerogex.io/mcp";
 const MAX_DAYS = 5;
-const BUCKET_MS = 5 * 60 * 1000; // one point every 5 min during cash hours
+const BUCKET_MS = 5 * 60 * 1000;
+
+// Collect only Sunday 15:00 CDT through Friday 20:00 CDT (America/Chicago)
+function isWithinCollectionWindow(now = new Date()) {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Chicago",
+    weekday: "short",
+    hour: "numeric",
+    hour12: false,
+    minute: "numeric",
+  });
+  const parts = fmt.formatToParts(now);
+  const get = (t) => parts.find((p) => p.type === t)?.value;
+  const weekday = get("weekday"); // Sun, Mon, Tue, Wed, Thu, Fri, Sat
+  const hour = parseInt(get("hour"), 10);
+  const minute = parseInt(get("minute"), 10);
+  const minutesOfDay = hour * 60 + minute;
+
+  // Sunday: from 15:00 onward
+  if (weekday === "Sun") return minutesOfDay >= 15 * 60;
+  // Monday–Thursday: all day
+  if (["Mon", "Tue", "Wed", "Thu"].includes(weekday)) return true;
+  // Friday: until 20:00
+  if (weekday === "Fri") return minutesOfDay < 20 * 60;
+  // Saturday: closed
+  return false;
+}
 
 async function fetchZeroGEX() {
   const res = await fetch(ZEROGEX_MCP, {
@@ -130,6 +156,11 @@ export default async function handler(req, res) {
       return res.status(200).json(history);
     }
 
+    // Enforce collection window: Sun 15:00 CDT – Fri 20:00 CDT
+    if (!isWithinCollectionWindow()) {
+      return res.status(200).json({ ok: true, skipped: true, reason: "Outside collection window (Sun 3PM CDT – Fri 8PM CDT)" });
+    }
+
     const zg = await fetchZeroGEX();
     const scores = computeScores(zg, history);
     const entry = {
@@ -150,7 +181,6 @@ export default async function handler(req, res) {
     const cutoff = Date.now() - MAX_DAYS * 86400000;
     history = history.filter(e => e && e.ts >= cutoff);
 
-    // Keep one point per 5-minute bucket
     const byBucket = {};
     history.forEach(e => {
       const key = Math.floor(e.ts / BUCKET_MS);
@@ -158,7 +188,6 @@ export default async function handler(req, res) {
     });
     history = Object.values(byBucket).sort((a, b) => a.ts - b.ts);
 
-    // Cap ~5 days of 5-min points during cash hours (~78/day * 5 = 390)
     if (history.length > 400) history = history.slice(-400);
 
     const content = Buffer.from(JSON.stringify(history, null, 2)).toString("base64");
