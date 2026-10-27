@@ -2,7 +2,6 @@ const ZEROGEX_MCP = "https://zerogex.io/mcp";
 const ALGOX_BASE = "https://algoxflow.com/v1/gamma";
 const POLL_INTERVAL = 60000;
 const ES_MULTIPLIER = 10;
-const HISTORY_KEY = "gex_history_es";
 const MAX_HISTORY_DAYS = 5;
 const NEAR_SPOT_PTS = 500;
 const NEAR_SPOT_STEP = 25;
@@ -119,56 +118,18 @@ function formatGex(v) {
   return sign + "$" + abs.toLocaleString();
 }
 
-function saveHistory(zg, scores) {
-  try {
-    const entry = {
-      ts: Date.now(),
-      spot: zg.spot,
-      flip: zg.flip,
-      callWall: zg.callWall,
-      putWall: zg.putWall,
-      netGex: parseNetGex(zg.netGex),
-      regime: zg.regime,
-      long: scores?.long ?? null,
-      short: scores?.short ?? null,
-      straddle: scores?.straddle ?? null,
-      bias: scores?.bias ?? null,
-    };
-    let hist = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-    hist.push(entry);
-    const cutoff = Date.now() - MAX_HISTORY_DAYS * 86400000;
-    hist = hist.filter(e => e.ts >= cutoff);
-    const by15 = {};
-    hist.forEach(e => {
-      const key = Math.floor(e.ts / (15 * 60 * 1000));
-      by15[key] = e;
-    });
-    hist = Object.values(by15).sort((a, b) => a.ts - b.ts);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
-    return hist;
-  } catch (e) {
-    return [];
-  }
-}
-
 async function loadHistory() {
-  let remote = [];
+  // Shared history only — same data on every device
   try {
     const res = await fetch("/history.json?t=" + Date.now());
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data)) remote = data;
+      if (Array.isArray(data)) {
+        return data.filter(e => e && e.ts).sort((a, b) => a.ts - b.ts);
+      }
     }
   } catch (e) {}
-  let local = [];
-  try { local = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); } catch {}
-  const by15 = {};
-  [...remote, ...local].forEach(e => {
-    if (!e || !e.ts) return;
-    const key = Math.floor(e.ts / (15 * 60 * 1000));
-    if (!by15[key] || e.ts > by15[key].ts) by15[key] = e;
-  });
-  return Object.values(by15).sort((a, b) => a.ts - b.ts);
+  return [];
 }
 
 function renderHistoryChart(hist) {
@@ -335,8 +296,7 @@ async function fetchAll() {
     renderLevels(zg);
     updateMarketPrices(esPrice, tnx, oil);
     const hist = await loadHistory();
-    const scores = renderIndicator(zg, hist);
-    saveHistory(zg, scores);
+    renderIndicator(zg, hist);
     renderChart(algox, zg.spot || esPrice, zg);
     renderHistoryChart(hist);
     renderMetricsChart(hist);
