@@ -2,7 +2,7 @@ const ZEROGEX_MCP = "https://zerogex.io/mcp";
 const ALGOX_BASE = "https://algoxflow.com/v1/gamma";
 const POLL_INTERVAL = 60000;
 const ES_MULTIPLIER = 10;
-const ZOOM_POINTS = 50;
+const ZOOM_BARS = 10;
 const HISTORY_KEY = "gex_history_es";
 const MAX_HISTORY_DAYS = 5;
 
@@ -67,7 +67,7 @@ function parseZeroGEX(text) {
     return m ? parseFloat(m[1].replace(/,/g, "")) : null;
   };
   const regimeMatch = text.match(/Modeled regime:\\s*(\\w+)/i);
-  const netMatch = text.match(/Net dealer gamma at spot:\\s*([\u2212\-\$0-9.,]+[BM])/i);
+  const netMatch = text.match(/Net dealer gamma at spot:\\s*([−\\-\\$0-9.,]+[BM])/i);
   return {
     spot: get("Spot the levels were computed against"),
     flip: get("Gamma flip"),
@@ -90,9 +90,9 @@ function toES(value) {
 
 function parseNetGex(raw) {
   if (!raw) return null;
-  const cleaned = raw.replace(/[\u2212\-$,]/g, "").replace("B", "e9").replace("M", "e6");
+  const cleaned = raw.replace(/[−\\-$,]/g, "").replace("B", "e9").replace("M", "e6");
   const num = parseFloat(cleaned);
-  const negative = raw.includes("\u2212") || raw.includes("-");
+  const negative = raw.includes("−") || raw.includes("-");
   return isNaN(num) ? null : (negative ? -num : num);
 }
 
@@ -100,7 +100,7 @@ let lastServerPost = 0;
 
 async function postSnapshot(zg) {
   const now = Date.now();
-  if (now - lastServerPost < 10 * 60 * 1000) return;
+  if (now - lastServerPost < 5 * 60 * 1000) return;
   lastServerPost = now;
   try {
     await fetch("/api/history", { method: "POST" });
@@ -122,12 +122,12 @@ function saveHistory(zg) {
     hist.push(entry);
     const cutoff = Date.now() - MAX_HISTORY_DAYS * 86400000;
     hist = hist.filter(e => e.ts >= cutoff);
-    const byHour = {};
+    const by15 = {};
     hist.forEach(e => {
-      const key = Math.floor(e.ts / 3600000);
-      byHour[key] = e;
+      const key = Math.floor(e.ts / (15 * 60 * 1000));
+      by15[key] = e;
     });
-    hist = Object.values(byHour).sort((a, b) => a.ts - b.ts);
+    hist = Object.values(by15).sort((a, b) => a.ts - b.ts);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(hist));
     return hist;
   } catch (e) {
@@ -137,23 +137,30 @@ function saveHistory(zg) {
 }
 
 async function loadHistory() {
+  let remote = [];
   try {
     const res = await fetch("/api/history");
     if (res.ok) {
-      const remote = await res.json();
-      if (Array.isArray(remote) && remote.length) return remote;
+      const data = await res.json();
+      if (Array.isArray(data)) remote = data;
     }
   } catch (e) {}
+  let local = [];
   try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
-  } catch {
-    return [];
-  }
+    local = JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+  } catch {}
+  const by15 = {};
+  [...remote, ...local].forEach(e => {
+    if (!e || !e.ts) return;
+    const key = Math.floor(e.ts / (15 * 60 * 1000));
+    if (!by15[key] || e.ts > by15[key].ts) by15[key] = e;
+  });
+  return Object.values(by15).sort((a, b) => a.ts - b.ts);
 }
 
 function renderHistoryChart(hist) {
   if (!els.historyCanvas) return;
-  const labels = hist.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit" }));
+  const labels = hist.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
   const values = hist.map(e => e.netGex);
   const colors = values.map(v => v >= 0 ? "#3fb950" : "#f85149");
 
@@ -179,10 +186,10 @@ function renderHistoryChart(hist) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        title: { display: true, text: "5-Day Net GEX Trend (repo history)", color: "#e6edf3" },
+        title: { display: true, text: `5-Day Net GEX Trend (${hist.length} points)`, color: "#e6edf3" },
       },
       scales: {
-        x: { ticks: { color: "#8b949e", maxTicksLimit: 12 }, grid: { color: "#30363d" } },
+        x: { ticks: { color: "#8b949e", maxTicksLimit: 14 }, grid: { color: "#30363d" } },
         y: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
       },
     },
@@ -258,15 +265,22 @@ function renderChart(algox, focusSpot) {
   const strikes = algox.strikes.map(s => ({
     strike: toES(s.strike),
     gex: s.net_gex_millions
-  })).filter(s => s.strike != null);
+  })).filter(s => s.strike != null).sort((a, b) => a.strike - b.strike);
 
-  const minStrike = focusSpot ? focusSpot - ZOOM_POINTS : Math.min(...strikes.map(s => s.strike));
-  const maxStrike = focusSpot ? focusSpot + ZOOM_POINTS : Math.max(...strikes.map(s => s.strike));
-  const zoomed = strikes.filter(s => s.strike >= minStrike && s.strike <= maxStrike);
-
-  const labels = zoomed.map(s => s.strike.toLocaleString());
-  const values = zoomed.map(s => s.gex);
+  const labels = strikes.map(s => s.strike.toLocaleString());
+  const values = strikes.map(s => s.gex);
   const colors = values.map(v => v >= 0 ? "#3fb950" : "#f85149");
+
+  let focusIdx = 0;
+  if (focusSpot != null) {
+    let bestDiff = Infinity;
+    strikes.forEach((s, i) => {
+      const diff = Math.abs(s.strike - focusSpot);
+      if (diff < bestDiff) { bestDiff = diff; focusIdx = i; }
+    });
+  }
+  const minIdx = Math.max(0, focusIdx - ZOOM_BARS);
+  const maxIdx = Math.min(strikes.length - 1, focusIdx + ZOOM_BARS);
 
   if (chart) chart.destroy();
 
@@ -277,13 +291,8 @@ function renderChart(algox, focusSpot) {
       const yScale = chartInstance.scales.y;
       const xScale = chartInstance.scales.x;
       if (!yScale || !xScale) return;
-      let bestIdx = 0;
-      let bestDiff = Infinity;
-      zoomed.forEach((s, i) => {
-        const diff = Math.abs(s.strike - focusSpot);
-        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
-      });
-      const y = yScale.getPixelForValue(bestIdx);
+      const y = yScale.getPixelForValue(focusIdx);
+      if (y < yScale.top || y > yScale.bottom) return;
       const ctx = chartInstance.ctx;
       ctx.save();
       ctx.strokeStyle = "#d29922";
@@ -320,13 +329,18 @@ function renderChart(algox, focusSpot) {
         legend: { display: false },
         title: {
           display: true,
-          text: `ES Gamma Profile (AlgoX SPY \u00d710) \u00b7 Zoomed \u00b1${ZOOM_POINTS} pts`,
+          text: `ES Gamma Profile (full spread) \u00b7 View zoomed near spot`,
           color: "#e6edf3"
         },
       },
       scales: {
         x: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
-        y: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
+        y: {
+          min: minIdx,
+          max: maxIdx,
+          ticks: { color: "#8b949e" },
+          grid: { color: "#30363d" }
+        },
       },
     },
   });
