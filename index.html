@@ -3,14 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
     <h1>GEX Streaming Dashboard</h1>
-    <p class="subtitle">Hybrid: ZeroGEX ES levels + AlgoX SPY strike profile (×10 → ES, zoomed) · 5-day net GEX history (local) · Polls every 60s</p>
+    <p class="subtitle">Hybrid: ZeroGEX ES levels + AlgoX SPY strike profile (×10 → ES, zoomed) · 5-day net GEX history · Polls every 60s</p>
     <div class="controls">
       <input id="tickerInput" type="text" placeholder="ES (default), SPX, NQ..." value="ES">
       <button id="loadBtn">Load</button>
@@ -46,6 +49,6 @@
     </section>
   </main>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>
