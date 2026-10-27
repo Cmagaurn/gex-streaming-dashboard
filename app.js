@@ -50,6 +50,7 @@ let multiChart = null;
 let pollTimer = null;
 let prevTnx = null;
 let prevOil = null;
+let prevVix = null;
 let lastHistoryPost = 0;
 let currentSymbol = "ES";
 
@@ -62,6 +63,7 @@ const els = {
   callWall: document.getElementById("callWall"),
   putWall: document.getElementById("putWall"),
   netGex: document.getElementById("netGex"),
+  vixPrice: document.getElementById("vixPrice"),
   regime: document.getElementById("regime"),
   meta: document.getElementById("meta"),
   canvas: document.getElementById("gexChart"),
@@ -289,7 +291,6 @@ function renderMultiChart(hist) {
   const bySym = {};
   ALL_SYMBOLS.forEach(s => { bySym[s] = hist.filter(e => (e.symbol || "ES") === s); });
 
-  // Build a shared time axis from all points
   const allTs = [...new Set(hist.map(e => e.ts))].sort((a, b) => a - b);
   const labels = allTs.map(ts => new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
 
@@ -425,16 +426,17 @@ async function fetchAll() {
   setStatus(`Loading ${symbol} levels + profile + markets\u2026`);
   try {
     const yahooSym = YAHOO_MAP[symbol] || symbol;
-    const [zg, algox, price, tnx, oil] = await Promise.all([
+    const [zg, algox, price, tnx, oil, vix] = await Promise.all([
       fetchZeroGEX(symbol),
       fetchAlgoX(symbol).catch(() => null),
       fetchYahoo(yahooSym).catch(() => null),
       fetchYahoo("^TNX").catch(() => null),
       fetchYahoo("BZ=F").catch(() => null),
+      fetchYahoo("^VIX").catch(() => null),
     ]);
 
     renderLevels(zg, symbol);
-    updateMarketPrices(price, tnx, oil, symbol);
+    updateMarketPrices(price, tnx, oil, vix, symbol);
     const hist = await loadHistory();
     const symbolHist = filterHist(hist, symbol);
     renderIndicator(zg, symbolHist);
@@ -458,7 +460,7 @@ function arrowFor(current, previous) {
   return "";
 }
 
-function updateMarketPrices(price, tnx, oil, symbol) {
+function updateMarketPrices(price, tnx, oil, vix, symbol) {
   if (els.esPrice) els.esPrice.textContent = `${symbol}: ${price != null ? price.toLocaleString() : "--"}`;
   const tnxArrow = arrowFor(tnx, prevTnx);
   if (els.tnxPrice) els.tnxPrice.innerHTML = `10Y: ${tnx != null ? tnx.toFixed(3) + "%" : "--"}${tnxArrow}`;
@@ -466,6 +468,9 @@ function updateMarketPrices(price, tnx, oil, symbol) {
   const oilArrow = arrowFor(oil, prevOil);
   if (els.oilPrice) els.oilPrice.innerHTML = `BZ Oil: ${oil != null ? oil.toFixed(2) : "--"}${oilArrow}`;
   if (oil != null) prevOil = oil;
+  const vixArrow = arrowFor(vix, prevVix);
+  if (els.vixPrice) els.vixPrice.innerHTML = `VIX: ${vix != null ? vix.toFixed(2) : "--"}${vixArrow}`;
+  if (vix != null) prevVix = vix;
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   if (els.timeframe) els.timeframe.textContent = `Intraday \u00b7 Last refresh: ${timeStr}`;
