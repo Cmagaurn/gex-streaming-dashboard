@@ -2,7 +2,7 @@ const ZEROGEX_MCP = "https://zerogex.io/mcp";
 const ALGOX_BASE = "https://algoxflow.com/v1/gamma";
 const POLL_INTERVAL = 60000;
 const ES_MULTIPLIER = 10;
-const ZOOM_POINTS = 250;
+const ZOOM_POINTS = 50;
 const HISTORY_KEY = "gex_history_es";
 const MAX_HISTORY_DAYS = 5;
 
@@ -66,8 +66,8 @@ function parseZeroGEX(text) {
     const m = text.match(new RegExp(label + ":\\s*([\\d,.]+)", "i"));
     return m ? parseFloat(m[1].replace(/,/g, "")) : null;
   };
-  const regimeMatch = text.match(/Modeled regime:\s*(\w+)/i);
-  const netMatch = text.match(/Net dealer gamma at spot:\s*([−\-\$0-9.,]+[BM])/i);
+  const regimeMatch = text.match(/Modeled regime:\\s*(\\w+)/i);
+  const netMatch = text.match(/Net dealer gamma at spot:\\s*([−\\-\\$0-9.,]+[BM])/i);
   return {
     spot: get("Spot the levels were computed against"),
     flip: get("Gamma flip"),
@@ -90,7 +90,7 @@ function toES(value) {
 
 function parseNetGex(raw) {
   if (!raw) return null;
-  const num = parseFloat(raw.replace(/[−\-$,]/g, "").replace("B", "e9").replace("M", "e6"));
+  const num = parseFloat(raw.replace(/[−\\-$,]/g, "").replace("B", "e9").replace("M", "e6"));
   return isNaN(num) ? null : (raw.includes("−") || raw.includes("-") ? -num : num);
 }
 
