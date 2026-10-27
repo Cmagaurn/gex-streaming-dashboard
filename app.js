@@ -104,6 +104,15 @@ function parseNetGex(raw) {
   return isNaN(num) ? null : (negative ? -num : num);
 }
 
+function formatGex(v) {
+  if (v == null || isNaN(v)) return "--";
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "-" : "";
+  if (abs >= 1e9) return sign + "$" + (abs / 1e9).toFixed(2) + "B";
+  if (abs >= 1e6) return sign + "$" + (abs / 1e6).toFixed(1) + "M";
+  return sign + "$" + abs.toLocaleString();
+}
+
 function saveHistory(zg) {
   try {
     const entry = {
@@ -163,7 +172,7 @@ function renderHistoryChart(hist) {
     data: {
       labels,
       datasets: [{
-        label: "Net GEX ($)",
+        label: "Net GEX",
         data: values,
         borderColor: "#58a6ff",
         backgroundColor: "rgba(88,166,255,0.1)",
@@ -179,10 +188,21 @@ function renderHistoryChart(hist) {
       plugins: {
         legend: { display: false },
         title: { display: true, text: `5-Day Net GEX Trend (${hist.length} points)`, color: "#e6edf3" },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => "Net GEX: " + formatGex(ctx.parsed.y)
+          }
+        }
       },
       scales: {
         x: { ticks: { color: "#8b949e", maxTicksLimit: 14 }, grid: { color: "#30363d" } },
-        y: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
+        y: {
+          ticks: {
+            color: "#8b949e",
+            callback: (v) => formatGex(v)
+          },
+          grid: { color: "#30363d" }
+        },
       },
     },
   });
