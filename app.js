@@ -121,6 +121,17 @@ function formatGex(v) {
 }
 
 async function loadHistory() {
+  // Prefer live API so new points appear immediately without redeploy
+  try {
+    const res = await fetch("/api/history?t=" + Date.now());
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        return data.filter(e => e && e.ts).sort((a, b) => a.ts - b.ts);
+      }
+    }
+  } catch (e) {}
+  // Fallback to static file
   try {
     const res = await fetch("/history.json?t=" + Date.now());
     if (res.ok) {
