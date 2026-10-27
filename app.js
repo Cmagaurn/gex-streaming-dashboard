@@ -67,14 +67,14 @@ function parseZeroGEX(text) {
     return m ? parseFloat(m[1].replace(/,/g, "")) : null;
   };
   const regimeMatch = text.match(/Modeled regime:\\s*(\\w+)/i);
-  const netMatch = text.match(/Net dealer gamma at spot:\\s*([−\\-\\$0-9.,]+[BM])/i);
+  const netMatch = text.match(/Net dealer gamma at spot:\\s*([^\\n]+)/i);
   return {
     spot: get("Spot the levels were computed against"),
     flip: get("Gamma flip"),
     callWall: get("Call wall"),
     putWall: get("Put wall"),
     regime: regimeMatch ? regimeMatch[1].toLowerCase() : "unknown",
-    netGex: netMatch ? netMatch[1] : null,
+    netGex: netMatch ? netMatch[1].trim() : null,
   };
 }
 
@@ -90,9 +90,9 @@ function toES(value) {
 
 function parseNetGex(raw) {
   if (!raw) return null;
-  const cleaned = raw.replace(/[−\\-$,]/g, "").replace("B", "e9").replace("M", "e6");
+  const negative = raw.includes("-") || raw.includes("\u2212");
+  const cleaned = raw.replace(/[^0-9.BM]/g, "").replace("B", "e9").replace("M", "e6");
   const num = parseFloat(cleaned);
-  const negative = raw.includes("−") || raw.includes("-");
   return isNaN(num) ? null : (negative ? -num : num);
 }
 
@@ -329,7 +329,7 @@ function renderChart(algox, focusSpot) {
         legend: { display: false },
         title: {
           display: true,
-          text: `ES Gamma Profile (full spread) \u00b7 View zoomed near spot`,
+          text: "ES Gamma Profile (full spread) \u00b7 View zoomed near spot",
           color: "#e6edf3"
         },
       },
