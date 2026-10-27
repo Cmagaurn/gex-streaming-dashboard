@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=17">
+  <link rel="stylesheet" href="styles.css?v=18">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 1400px; }
@@ -25,6 +25,10 @@
     details { margin-top: 0.5rem; color: #8b949e; font-size: 0.9rem; }
     details ul { margin: 0.5rem 0; padding-left: 1.25rem; }
     select#tickerSelect { padding: 0.4rem 0.6rem; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .ticker-gex { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem; margin: 1rem 0; }
+    .ticker-gex .box { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem; text-align: center; font-size: 0.9rem; }
+    .ticker-gex .box .sym { font-weight: 600; color: #e6edf3; }
+    .ticker-gex .box .val { font-size: 1.05rem; margin-top: 0.2rem; }
   </style>
 </head>
 <body>
@@ -59,6 +63,15 @@
       <div class="meta" id="meta">Updated: -- · Age: --</div>
     </section>
 
+    <section class="ticker-gex" id="tickerGexBoxes">
+      <div class="box" id="gex-ES"><div class="sym">ES</div><div class="val">--</div></div>
+      <div class="box" id="gex-SPX"><div class="sym">SPX</div><div class="val">--</div></div>
+      <div class="box" id="gex-SPY"><div class="sym">SPY</div><div class="val">--</div></div>
+      <div class="box" id="gex-NQ"><div class="sym">NQ</div><div class="val">--</div></div>
+      <div class="box" id="gex-NDX"><div class="sym">NDX</div><div class="val">--</div></div>
+      <div class="box" id="gex-QQQ"><div class="sym">QQQ</div><div class="val">--</div></div>
+    </section>
+
     <section class="chart-section">
       <canvas id="gexChart"></canvas>
     </section>
@@ -82,7 +95,7 @@
           <li><strong>Short:</strong> Regime SHORT + spot below flip + near call wall + falling net GEX</li>
           <li><strong>Straddle:</strong> Spot within ~0.4% of gamma flip + large |net GEX| or unstable regime</li>
         </ul>
-        <p>Scores are qualitative priors. History is ES-focused (cron collects ES). Selecting another ticker loads its live ZeroGEX levels and profile.</p>
+        <p>Scores and the single-ticker trend charts follow the selected symbol. The multi-ticker chart always shows all six.</p>
       </details>
     </section>
 
@@ -90,17 +103,21 @@
       <canvas id="metricsChart"></canvas>
     </section>
 
+    <section class="chart-section" style="margin-top: 1.5rem; height: 360px;">
+      <canvas id="multiHistoryChart"></canvas>
+    </section>
+
     <section class="attribution">
       <strong>Data sources & refresh</strong><br>
       Levels: <a href="https://zerogex.io" target="_blank">ZeroGEX</a> free delayed (~15 min) for SPX, SPY, QQQ, NDX, ES, NQ · app polls every 60s<br>
       Strike profile: <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> (SPY for ES/SPX/SPY, QQQ for NQ/NDX/QQQ)<br>
       Prices: Yahoo Finance via proxy · 10Y & BZ Oil always shown<br>
-      History: shared ES store · external cron every 5 min (Sun 3PM–Fri 8PM CDT) + page-open posts<br>
+      History: shared store for all six symbols · external cron every 5 min (Sun 3PM–Fri 8PM CDT)<br>
       <span id="timeframe">Intraday · Last refresh: --</span><br>
       Not financial advice.
     </section>
   </main>
 
-  <script src="app.js?v=17"></script>
+  <script src="app.js?v=18"></script>
 </body>
 </html>
