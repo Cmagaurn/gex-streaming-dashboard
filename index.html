@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=13">
+  <link rel="stylesheet" href="styles.css?v=14">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 1400px; }
@@ -74,7 +74,7 @@
           <li><strong>Short:</strong> Regime SHORT + spot below flip + near call wall + falling 5-day net GEX</li>
           <li><strong>Straddle:</strong> Spot within ~0.4% of gamma flip + large |net GEX| or unstable regime (flip zone)</li>
         </ul>
-        <p>Scores are weighted qualitative priors from dealer-gamma mechanics. History accumulates in <code>history.json</code> (GitHub Actions every 30 min) + localStorage. Once you have enough real snapshots you can back-test the scores against subsequent /ES closes and adjust weights.</p>
+        <p>Scores are weighted qualitative priors from dealer-gamma mechanics. History is the shared <code>history.json</code> (GitHub Actions every 30 min) so desktop and mobile see the same metrics. Once you have enough real snapshots you can back-test the scores against subsequent /ES closes and adjust weights.</p>
       </details>
     </section>
 
@@ -87,7 +87,7 @@
       Levels (spot, flip, walls, regime, net GEX): <a href="https://zerogex.io" target="_blank">ZeroGEX</a> free delayed (ES modeled from SPX options, ~15+ min behind) · app polls every 60s<br>
       Strike profile: <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> SPY ×10 → ES · full spread, 25-pt bars within ±500 of spot<br>
       Prices (/ES, 10Y, BZ Oil): Yahoo Finance via proxy · app polls every 60s<br>
-      5-day net GEX history + indicator metrics: GitHub Actions every 30 min + localStorage · chart y-axis in $B/$M or %<br>
+      5-day net GEX history + indicator metrics: shared <code>history.json</code> (GitHub Actions every 30 min) · same on every device · chart y-axis in $B/$M or %<br>
       <br>
       <strong>When data is flowing vs closed</strong><br>
       • <strong>/ES futures</strong> (Yahoo price): nearly 24/5 — Sunday ~6:00 PM ET through Friday ~5:00 PM ET, with a brief daily maintenance break (~5:00–6:00 PM ET). Outside these hours quotes may be stale or unavailable.<br>
@@ -99,6 +99,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=13"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>
