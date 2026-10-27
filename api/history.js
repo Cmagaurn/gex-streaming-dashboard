@@ -22,26 +22,83 @@ async function fetchZeroGEX() {
 }
 
 function parseZeroGEX(text) {
-  const get = (label) => {
-    const m = text.match(new RegExp(label + ":\\s*([\\d,.]+)", "i"));
+  const getNum = (label) => {
+    const idx = text.toLowerCase().indexOf(label.toLowerCase());
+    if (idx < 0) return null;
+    const after = text.slice(idx + label.length);
+    const m = after.match(/[:\s]*([0-9,]+\.?[0-9]*)/);
     return m ? parseFloat(m[1].replace(/,/g, "")) : null;
   };
-  const regimeMatch = text.match(/Modeled regime:\\s*(\\w+)/i);
-  const netMatch = text.match(/Net dealer gamma at spot:\\s*([\\u2212\\-\\$0-9.,]+[BM])/i);
+  const regimeLine = (text.match(/Modeled regime:[^\n]*/i) || [""])[0];
+  let regime = "unknown";
+  if (/short/i.test(regimeLine)) regime = "short";
+  else if (/long/i.test(regimeLine)) regime = "long";
+  const netLine = (text.match(/Net dealer gamma at spot:[^\n]*/i) || [""])[0];
+  const netM = netLine.match(/(-?\$?[0-9.]+[BM])/i);
   return {
-    spot: get("Spot the levels were computed against"),
-    flip: get("Gamma flip"),
-    callWall: get("Call wall"),
-    putWall: get("Put wall"),
-    regime: regimeMatch ? regimeMatch[1].toLowerCase() : "unknown",
-    netGex: netMatch ? netMatch[1] : null,
+    spot: getNum("Spot the levels were computed against"),
+    flip: getNum("Gamma flip"),
+    callWall: getNum("Call wall"),
+    putWall: getNum("Put wall"),
+    regime,
+    netGex: netM ? netM[1] : null,
   };
 }
 
 function parseNetGex(raw) {
   if (!raw) return null;
-  const num = parseFloat(raw.replace(/[\\u2212\\-$,]/g, "").replace("B", "e9").replace("M", "e6"));
-  return isNaN(num) ? null : (raw.includes("\\u2212") || raw.includes("-") ? -num : num);
+  const negative = String(raw).includes("-");
+  const cleaned = String(raw).replace(/[^0-9.BM]/g, "").replace("B", "e9").replace("M", "e6");
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : (negative ? -num : num);
+}
+
+function computeScores(zg, hist) {
+  const { spot, flip, callWall, putWall, regime } = zg;
+  const net = parseNetGex(zg.netGex);
+  if (spot == null || flip == null) return { long: 0, short: 0, straddle: 0, bias: "Insufficient data" };
+  const flipDistPct = Math.abs(spot - flip) / spot * 100;
+  const nearFlip = flipDistPct < 0.4;
+  const regimeLong = regime === "long" || regime === "positive";
+  const regimeShort = regime === "short" || regime === "negative";
+  const spotAbove = spot > flip;
+  const nearPut = putWall != null && Math.abs(spot - putWall) < 60;
+  const nearCall = callWall != null && Math.abs(spot - callWall) < 60;
+  let slopeUp = false, slopeDown = false;
+  if (hist && hist.length >= 3) {
+    const recent = hist.slice(-3).map(e => e.netGex).filter(v => v != null);
+    if (recent.length >= 2) {
+      const delta = recent[recent.length - 1] - recent[0];
+      slopeUp = delta > 0;
+      slopeDown = delta < 0;
+    }
+  }
+  let long = 0;
+  if (regimeLong && spotAbove) long += 40;
+  if (nearPut) long += 20;
+  if (slopeUp || (!slopeDown && hist && hist.length > 0)) long += 15;
+  if (!nearFlip) long += 10;
+  long = Math.min(100, Math.max(0, long));
+  let short = 0;
+  if (regimeShort && !spotAbove) short += 40;
+  if (nearCall) short += 20;
+  if (slopeDown) short += 15;
+  if (!nearFlip) short += 10;
+  short = Math.min(100, Math.max(0, short));
+  let straddle = 0;
+  if (nearFlip) straddle += 50;
+  if (net != null && Math.abs(net) > 1e9) straddle += 25;
+  if (nearFlip || (regime !== "long" && regime !== "short")) straddle += 15;
+  straddle = Math.min(100, Math.max(0, straddle));
+  const total = long + short + straddle || 1;
+  const longN = Math.round((long / total) * 100);
+  const shortN = Math.round((short / total) * 100);
+  const straddleN = Math.round((straddle / total) * 100);
+  let bias = "Neutral";
+  if (longN > shortN && longN > straddleN && longN >= 40) bias = "Long bias";
+  else if (shortN > longN && shortN > straddleN && shortN >= 40) bias = "Short bias";
+  else if (straddleN >= 40) bias = "Straddle / expansion bias";
+  return { long: longN, short: shortN, straddle: straddleN, bias };
 }
 
 export default async function handler(req, res) {
@@ -65,6 +122,7 @@ export default async function handler(req, res) {
       const data = await getRes.json();
       sha = data.sha;
       history = JSON.parse(Buffer.from(data.content, "base64").toString());
+      if (!Array.isArray(history)) history = [];
     }
 
     if (req.method === "GET") {
@@ -72,25 +130,30 @@ export default async function handler(req, res) {
     }
 
     const zg = await fetchZeroGEX();
+    const scores = computeScores(zg, history);
     const entry = {
       ts: Date.now(),
       spot: zg.spot,
       flip: zg.flip,
+      callWall: zg.callWall,
+      putWall: zg.putWall,
       netGex: parseNetGex(zg.netGex),
       regime: zg.regime,
+      long: scores.long,
+      short: scores.short,
+      straddle: scores.straddle,
+      bias: scores.bias,
     };
     history.push(entry);
 
     const cutoff = Date.now() - MAX_DAYS * 86400000;
-    history = history.filter(e => e.ts >= cutoff);
-    // Keep at most one point every 15 minutes for denser 5-day chart
+    history = history.filter(e => e && e.ts >= cutoff);
     const by15 = {};
     history.forEach(e => {
       const key = Math.floor(e.ts / (15 * 60 * 1000));
       by15[key] = e;
     });
     history = Object.values(by15).sort((a, b) => a.ts - b.ts);
-    // Cap total points so the file stays small
     if (history.length > 500) history = history.slice(-500);
 
     const content = Buffer.from(JSON.stringify(history, null, 2)).toString("base64");
@@ -112,11 +175,12 @@ export default async function handler(req, res) {
     );
     if (!putRes.ok) {
       const err = await putRes.text();
-      return res.status(500).json({ error: "GitHub update failed", details: err });
+      return res.status(500).json({ error: "GitHub update failed", details: err.slice(0, 300) });
     }
 
     return res.status(200).json({ ok: true, count: history.length, latest: entry });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    console.error(err);
+    return res.status(500).json({ error: err.message || String(err) });
   }
 }
