@@ -7,11 +7,13 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=10">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 1400px; }
     @media (max-width: 600px) { .chart-section { height: 1000px; } }
+    .attribution { font-size: 0.85rem; line-height: 1.5; color: #8b949e; text-align: center; margin-top: 1.5rem; }
+    .attribution a { color: #58a6ff; }
   </style>
 </head>
 <body>
@@ -48,11 +50,16 @@
     </section>
 
     <section class="attribution">
-      Data by <a href="https://zerogex.io" target="_blank">ZeroGEX</a> (levels) + <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> (profile) · Yahoo Finance · Not financial advice<br>
-      <span id="timeframe">Intraday · Last refresh: --</span>
+      <strong>Data sources & refresh</strong><br>
+      Levels (spot, flip, walls, regime, net GEX): <a href="https://zerogex.io" target="_blank">ZeroGEX</a> free delayed (ES modeled from SPX, ~15+ min behind) · refreshed every 60s<br>
+      Strike profile: <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> SPY ×10 → ES · full spread, 25-pt bars within ±500 of spot<br>
+      Prices (/ES, 10Y, BZ Oil): Yahoo Finance via proxy · refreshed every 60s<br>
+      5-day net GEX history: local + repo snapshots (seeded, then live) · chart y-axis in $B/$M<br>
+      <span id="timeframe">Intraday · Last refresh: --</span><br>
+      Not financial advice.
     </section>
   </main>
 
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>
