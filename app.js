@@ -30,6 +30,10 @@ const els = {
   tnxPrice: document.getElementById("tnxPrice"),
   oilPrice: document.getElementById("oilPrice"),
   timeframe: document.getElementById("timeframe"),
+  longProb: document.getElementById("longProb"),
+  shortProb: document.getElementById("shortProb"),
+  straddleProb: document.getElementById("straddleProb"),
+  biasLabel: document.getElementById("biasLabel"),
 };
 
 function setStatus(msg, isError = false) {
@@ -208,6 +212,73 @@ function renderHistoryChart(hist) {
   });
 }
 
+function computeScores(zg, hist) {
+  const { spot, flip, callWall, putWall, regime } = zg;
+  const net = parseNetGex(zg.netGex);
+  if (spot == null || flip == null) return { long: 0, short: 0, straddle: 0, bias: "Insufficient data" };
+
+  const flipDistPct = Math.abs(spot - flip) / spot * 100;
+  const nearFlip = flipDistPct < 0.4;
+  const regimeLong = regime === "long" || regime === "positive";
+  const regimeShort = regime === "short" || regime === "negative";
+  const spotAboveFlip = spot > flip;
+  const nearPut = putWall != null && Math.abs(spot - putWall) < 60;
+  const nearCall = callWall != null && Math.abs(spot - callWall) < 60;
+
+  // Simple net GEX slope from last few points
+  let slopeUp = false;
+  let slopeDown = false;
+  if (hist && hist.length >= 3) {
+    const recent = hist.slice(-3).map(e => e.netGex).filter(v => v != null);
+    if (recent.length >= 2) {
+      const delta = recent[recent.length - 1] - recent[0];
+      slopeUp = delta > 0;
+      slopeDown = delta < 0;
+    }
+  }
+
+  let long = 0;
+  if (regimeLong && spotAboveFlip) long += 40;
+  if (nearPut) long += 20;
+  if (slopeUp || (!slopeDown && hist && hist.length > 0)) long += 15;
+  if (!nearFlip) long += 10;
+  long = Math.min(100, Math.max(0, long));
+
+  let short = 0;
+  if (regimeShort && !spotAboveFlip) short += 40;
+  if (nearCall) short += 20;
+  if (slopeDown) short += 15;
+  if (!nearFlip) short += 10;
+  short = Math.min(100, Math.max(0, short));
+
+  let straddle = 0;
+  if (nearFlip) straddle += 50;
+  if (net != null && Math.abs(net) > 1e9) straddle += 25;
+  if (nearFlip || (regime !== "long" && regime !== "short")) straddle += 15;
+  straddle = Math.min(100, Math.max(0, straddle));
+
+  // Normalize so they don't all look high
+  const total = long + short + straddle || 1;
+  const longN = Math.round((long / total) * 100);
+  const shortN = Math.round((short / total) * 100);
+  const straddleN = Math.round((straddle / total) * 100);
+
+  let bias = "Neutral";
+  if (longN > shortN && longN > straddleN && longN >= 40) bias = "Long bias";
+  else if (shortN > longN && shortN > straddleN && shortN >= 40) bias = "Short bias";
+  else if (straddleN >= 40) bias = "Straddle / expansion bias";
+
+  return { long: longN, short: shortN, straddle: straddleN, bias };
+}
+
+function renderIndicator(zg, hist) {
+  const scores = computeScores(zg, hist);
+  if (els.longProb) els.longProb.textContent = `Long: ${scores.long}%`;
+  if (els.shortProb) els.shortProb.textContent = `Short: ${scores.short}%`;
+  if (els.straddleProb) els.straddleProb.textContent = `Straddle: ${scores.straddle}%`;
+  if (els.biasLabel) els.biasLabel.textContent = `Bias: ${scores.bias}`;
+}
+
 async function fetchAll() {
   setStatus("Loading ZeroGEX levels + AlgoX profile + markets\u2026");
   try {
@@ -225,6 +296,7 @@ async function fetchAll() {
     const hist = await loadHistory();
     saveHistory(zg);
     renderHistoryChart(hist);
+    renderIndicator(zg, hist);
     setStatus("Live \u00b7 ZeroGEX levels + AlgoX profile (ES \u00d710)");
   } catch (err) {
     console.error(err);
