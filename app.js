@@ -5,7 +5,7 @@ const ES_MULTIPLIER = 10;
 const MAX_HISTORY_DAYS = 5;
 const NEAR_SPOT_PTS = 500;
 const NEAR_SPOT_STEP = 25;
-const HISTORY_POST_INTERVAL = 15 * 60 * 1000;
+const HISTORY_POST_INTERVAL = 30 * 60 * 1000; // 30 min → max ~48 points/day
 
 let chart = null;
 let historyChart = null;
@@ -121,7 +121,6 @@ function formatGex(v) {
 }
 
 async function loadHistory() {
-  // Prefer live API so new points appear immediately without redeploy
   try {
     const res = await fetch("/api/history?t=" + Date.now());
     if (res.ok) {
@@ -131,7 +130,6 @@ async function loadHistory() {
       }
     }
   } catch (e) {}
-  // Fallback to static file
   try {
     const res = await fetch("/history.json?t=" + Date.now());
     if (res.ok) {
