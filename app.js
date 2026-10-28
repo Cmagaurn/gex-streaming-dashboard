@@ -43,6 +43,8 @@ const SCALE_MAP = {
   QQQ: 1,
 };
 
+const SQRT_252 = 15.87;
+
 let chart = null;
 let historyChart = null;
 let metricsChart = null;
@@ -64,6 +66,7 @@ const els = {
   putWall: document.getElementById("putWall"),
   netGex: document.getElementById("netGex"),
   vixPrice: document.getElementById("vixPrice"),
+  impliedMove: document.getElementById("impliedMove"),
   regime: document.getElementById("regime"),
   meta: document.getElementById("meta"),
   canvas: document.getElementById("gexChart"),
@@ -162,6 +165,18 @@ function formatGex(v) {
   if (abs >= 1e9) return sign + "$" + (abs / 1e9).toFixed(2) + "B";
   if (abs >= 1e6) return sign + "$" + (abs / 1e6).toFixed(1) + "M";
   return sign + "$" + abs.toLocaleString();
+}
+
+function computeImpliedMove(spot, vix) {
+  if (spot == null || vix == null || vix <= 0) return null;
+  const dailyPct = vix / SQRT_252;
+  const dailyPoints = spot * (dailyPct / 100);
+  return {
+    pct: dailyPct,
+    points: dailyPoints,
+    low: spot - dailyPoints,
+    high: spot + dailyPoints,
+  };
 }
 
 async function loadHistory() {
@@ -436,7 +451,7 @@ async function fetchAll() {
     ]);
 
     renderLevels(zg, symbol);
-    updateMarketPrices(price, tnx, oil, vix, symbol);
+    updateMarketPrices(price, tnx, oil, vix, symbol, zg.spot);
     const hist = await loadHistory();
     const symbolHist = filterHist(hist, symbol);
     renderIndicator(zg, symbolHist);
@@ -460,7 +475,7 @@ function arrowFor(current, previous) {
   return "";
 }
 
-function updateMarketPrices(price, tnx, oil, vix, symbol) {
+function updateMarketPrices(price, tnx, oil, vix, symbol, spot) {
   if (els.esPrice) els.esPrice.textContent = `${symbol}: ${price != null ? price.toLocaleString() : "--"}`;
   const tnxArrow = arrowFor(tnx, prevTnx);
   if (els.tnxPrice) els.tnxPrice.innerHTML = `10Y: ${tnx != null ? tnx.toFixed(3) + "%" : "--"}${tnxArrow}`;
@@ -471,6 +486,18 @@ function updateMarketPrices(price, tnx, oil, vix, symbol) {
   const vixArrow = arrowFor(vix, prevVix);
   if (els.vixPrice) els.vixPrice.innerHTML = `VIX: ${vix != null ? vix.toFixed(2) : "--"}${vixArrow}`;
   if (vix != null) prevVix = vix;
+
+  // Implied move: VIX / 15.87 × spot
+  const refSpot = spot || price;
+  const im = computeImpliedMove(refSpot, vix);
+  if (els.impliedMove) {
+    if (im) {
+      els.impliedMove.textContent = `Implied Move: \u00b1${im.points.toFixed(1)} pts (${im.pct.toFixed(2)}%)`;
+    } else {
+      els.impliedMove.textContent = "Implied Move: --";
+    }
+  }
+
   const now = new Date();
   const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   if (els.timeframe) els.timeframe.textContent = `Intraday \u00b7 Last refresh: ${timeStr}`;
