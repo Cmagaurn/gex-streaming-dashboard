@@ -26857,7 +26857,7 @@
     "bias": "Short bias"
   },
   {
-    "ts": 1793304301793,
+    "ts": 1793304304189,
     "symbol": "ES",
     "spot": 7743.75,
     "flip": 7774.5,
@@ -26871,7 +26871,7 @@
     "bias": "Straddle / expansion bias"
   },
   {
-    "ts": 1793304301793,
+    "ts": 1793304304189,
     "symbol": "SPX",
     "spot": 7706.95,
     "flip": 7741.64,
@@ -26879,13 +26879,13 @@
     "putWall": 7700,
     "netGex": -20920000000,
     "regime": "short",
-    "long": 25,
-    "short": 54,
+    "long": 38,
+    "short": 42,
     "straddle": 21,
     "bias": "Short bias"
   },
   {
-    "ts": 1793304301793,
+    "ts": 1793304304189,
     "symbol": "SPY",
     "spot": 768.21,
     "flip": 773.48,
@@ -26893,27 +26893,27 @@
     "putWall": 760,
     "netGex": -4510000000,
     "regime": "short",
-    "long": 21,
-    "short": 61,
+    "long": 32,
+    "short": 50,
     "straddle": 18,
     "bias": "Short bias"
   },
   {
-    "ts": 1793304301793,
+    "ts": 1793304304189,
     "symbol": "NQ",
-    "spot": 29496.75,
-    "flip": 29548,
+    "spot": 29504.5,
+    "flip": 29550.25,
     "callWall": 29833.25,
     "putWall": 29154.5,
-    "netGex": -116000000,
+    "netGex": -56900000,
     "regime": "short",
-    "long": 0,
-    "short": 46,
+    "long": 13,
+    "short": 33,
     "straddle": 54,
     "bias": "Straddle / expansion bias"
   },
   {
-    "ts": 1793304301793,
+    "ts": 1793304304189,
     "symbol": "NDX",
     "spot": 29371.84,
     "flip": 29393.66,
@@ -26921,13 +26921,13 @@
     "putWall": 29000,
     "netGex": -56900000,
     "regime": "short",
-    "long": 0,
-    "short": 46,
+    "long": 13,
+    "short": 33,
     "straddle": 54,
     "bias": "Straddle / expansion bias"
   },
   {
-    "ts": 1793304301793,
+    "ts": 1793304304189,
     "symbol": "QQQ",
     "spot": 713.68,
     "flip": 726.51,
@@ -26935,8 +26935,8 @@
     "putWall": 700,
     "netGex": -3390000000,
     "regime": "short",
-    "long": 21,
-    "short": 61,
+    "long": 32,
+    "short": 50,
     "straddle": 18,
     "bias": "Short bias"
   }
