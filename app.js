@@ -1,1 +1,1 @@
-PLACEHOLDER
+console.log('test');
