@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=21">
+  <link rel="stylesheet" href="styles.css?v=22">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 900px; min-height: 600px; }
@@ -29,6 +29,9 @@
     .ticker-gex .box { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem; text-align: center; font-size: 0.9rem; }
     .ticker-gex .box .sym { font-weight: 600; color: #e6edf3; }
     .ticker-gex .box .val { font-size: 1.05rem; margin-top: 0.2rem; }
+    .overlay-toggle { margin-left: 12px; font-size: 0.9rem; color: #8b949e; }
+    .overlay-toggle input { margin-right: 4px; }
+    #schwabNote { font-size: 0.8rem; color: #58a6ff; margin-left: 8px; }
   </style>
 </head>
 <body>
@@ -45,6 +48,10 @@
         <option value="QQQ">QQQ</option>
       </select>
       <button id="loadBtn">Load</button>
+      <label class="overlay-toggle">
+        <input type="checkbox" id="schwabOverlay"> Show Schwab real-time overlay
+      </label>
+      <span id="schwabNote"></span>
       <span id="status">Ready</span>
     </div>
   </header>
@@ -113,6 +120,7 @@
       <strong>Data sources & refresh</strong><br>
       Levels: <a href="https://zerogex.io" target="_blank">ZeroGEX</a> free delayed (~15 min) for SPX, SPY, QQQ, NDX, ES, NQ · app polls every 60s<br>
       Strike profile: <a href="https://algoxflow.com" target="_blank">AlgoX Flow</a> (SPY for ES/SPX/SPY, QQQ for NQ/NDX/QQQ)<br>
+      Schwab overlay: real-time chain GEX (toggle above) · endpoint /api/schwab-gex<br>
       Prices: Yahoo Finance via proxy · VIX, 10Y & BZ Oil always shown<br>
       Implied Move: VIX / 15.87 × selected spot (daily expected range)<br>
       History: shared store for all six symbols · external cron every 5 min (Sun 3PM–Fri 8PM CDT)<br>
@@ -121,6 +129,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=21"></script>
+  <script src="app.js?v=22"></script>
 </body>
 </html>
