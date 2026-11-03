@@ -33516,7 +33516,7 @@
     "bias": "Short bias"
   },
   {
-    "ts": 1793722206085,
+    "ts": 1793722219068,
     "symbol": "ES",
     "spot": 7608,
     "flip": 7734.5,
@@ -33530,13 +33530,13 @@
     "bias": "Short bias"
   },
   {
-    "ts": 1793722206085,
+    "ts": 1793722219068,
     "symbol": "SPX",
-    "spot": 7578.86,
-    "flip": 7702.52,
+    "spot": 7577.18,
+    "flip": 7704.21,
     "callWall": 7700,
     "putWall": 7500,
-    "netGex": -37230000000,
+    "netGex": -37880000000,
     "regime": "short",
     "long": 25,
     "short": 50,
@@ -33544,13 +33544,13 @@
     "bias": "Short bias"
   },
   {
-    "ts": 1793722206085,
+    "ts": 1793722219068,
     "symbol": "SPY",
-    "spot": 755.5,
-    "flip": 774.02,
+    "spot": 755.3,
+    "flip": 774.06,
     "callWall": 760,
     "putWall": 750,
-    "netGex": -10440000000,
+    "netGex": -10490000000,
     "regime": "short",
     "long": 32,
     "short": 50,
@@ -33558,7 +33558,7 @@
     "bias": "Short bias"
   },
   {
-    "ts": 1793722206085,
+    "ts": 1793722219068,
     "symbol": "NQ",
     "spot": 28357.25,
     "flip": 29743.25,
@@ -33566,27 +33566,27 @@
     "putWall": 27631.75,
     "netGex": -1370000000,
     "regime": "short",
-    "long": 25,
-    "short": 50,
+    "long": 10,
+    "short": 65,
     "straddle": 25,
     "bias": "Short bias"
   },
   {
-    "ts": 1793722206085,
+    "ts": 1793722219068,
     "symbol": "NDX",
-    "spot": 28234.2,
-    "flip": 29581.29,
+    "spot": 28225.75,
+    "flip": 29601.36,
     "callWall": 29675,
     "putWall": 27500,
-    "netGex": -1340000000,
+    "netGex": -1370000000,
     "regime": "short",
-    "long": 25,
-    "short": 50,
+    "long": 10,
+    "short": 65,
     "straddle": 25,
     "bias": "Short bias"
   },
   {
-    "ts": 1793722206085,
+    "ts": 1793722219068,
     "symbol": "QQQ",
     "spot": 686.72,
     "flip": 733.21,
@@ -33594,8 +33594,8 @@
     "putWall": 680,
     "netGex": -4830000000,
     "regime": "short",
-    "long": 32,
-    "short": 50,
+    "long": 21,
+    "short": 61,
     "straddle": 18,
     "bias": "Short bias"
   }
