@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="stylesheet" href="styles.css?v=24">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 900px; min-height: 600px; }
@@ -32,6 +32,11 @@
     .overlay-toggle { margin-left: 12px; font-size: 0.9rem; color: #8b949e; }
     .overlay-toggle input { margin-right: 4px; }
     #schwabNote { font-size: 0.8rem; color: #58a6ff; margin-left: 8px; }
+    .schwab-boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.5rem; margin: 1rem 0; }
+    .schwab-boxes .box { background: #161b22; border: 1px solid #00ffff; border-radius: 6px; padding: 0.6rem; text-align: center; font-size: 0.85rem; }
+    .schwab-boxes .box .src { font-size: 0.7rem; color: #00ffff; text-transform: uppercase; letter-spacing: 0.05em; }
+    .schwab-boxes .box .label { font-weight: 600; color: #e6edf3; margin-top: 0.15rem; }
+    .schwab-boxes .box .val { font-size: 1.1rem; margin-top: 0.2rem; color: #ffffff; }
   </style>
 </head>
 <body>
@@ -70,6 +75,14 @@
       <div class="level" id="tnxPrice">10Y: --</div>
       <div class="level" id="oilPrice">BZ Oil: --</div>
       <div class="meta" id="meta">Updated: -- · Age: --</div>
+    </section>
+
+    <section class="schwab-boxes" id="schwabBoxes">
+      <div class="box"><div class="src">Schwab</div><div class="label">Spot</div><div class="val" id="schwabSpot">--</div></div>
+      <div class="box"><div class="src">Schwab</div><div class="label">Gamma Flip</div><div class="val" id="schwabFlip">--</div></div>
+      <div class="box"><div class="src">Schwab</div><div class="label">Call Wall</div><div class="val" id="schwabCall">--</div></div>
+      <div class="box"><div class="src">Schwab</div><div class="label">Put Wall</div><div class="val" id="schwabPut">--</div></div>
+      <div class="box"><div class="src">Schwab</div><div class="label">Net GEX</div><div class="val" id="schwabNet">--</div></div>
     </section>
 
     <section class="ticker-gex" id="tickerGexBoxes">
@@ -129,6 +142,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=23"></script>
+  <script src="app.js?v=24"></script>
 </body>
 </html>
