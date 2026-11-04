@@ -11,7 +11,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Refresh access token
     const tokenRes = await fetch("https://api.schwabapi.com/v1/oauth/token", {
       method: "POST",
       headers: {
@@ -32,7 +31,6 @@ export default async function handler(req, res) {
     const tokens = await tokenRes.json();
     const accessToken = tokens.access_token;
 
-    // Fetch option chain
     const today = new Date().toISOString().slice(0, 10);
     const toDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const chainUrl = new URL("https://api.schwabapi.com/marketdata/v1/chains");
@@ -60,7 +58,6 @@ export default async function handler(req, res) {
     const spot = chain.underlyingPrice;
     if (!spot) return res.status(502).json({ error: "No underlying price" });
 
-    // Compute GEX by strike
     const gexByStrike = {};
     const processMap = (expMap, sign) => {
       for (const strikes of Object.values(expMap || {})) {
@@ -84,6 +81,25 @@ export default async function handler(req, res) {
 
     const strikes = Object.keys(gexByStrike).map(Number).sort((a, b) => a - b);
     const gex = strikes.map(s => gexByStrike[s]);
+    const netGex = gex.reduce((a, b) => a + b, 0);
+
+    let callWall = null;
+    let putWall = null;
+    let maxGex = -Infinity;
+    let minGex = Infinity;
+    strikes.forEach((s, i) => {
+      if (gex[i] > maxGex) { maxGex = gex[i]; callWall = s; }
+      if (gex[i] < minGex) { minGex = gex[i]; putWall = s; }
+    });
+
+    let gammaFlip = null;
+    let cum = 0;
+    for (let i = 0; i < strikes.length; i++) {
+      const prev = cum;
+      cum += gex[i];
+      if (prev * cum < 0) { gammaFlip = strikes[i]; break; }
+    }
+    if (gammaFlip == null && strikes.length) gammaFlip = strikes[Math.floor(strikes.length / 2)];
 
     res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate");
     return res.status(200).json({
@@ -91,6 +107,10 @@ export default async function handler(req, res) {
       spot,
       strikes,
       gex,
+      netGex,
+      callWall,
+      putWall,
+      gammaFlip,
       updated: new Date().toISOString(),
       source: "schwab",
     });
