@@ -33516,21 +33516,21 @@
     "bias": "Short bias"
   },
   {
-    "ts": 1793789405797,
+    "ts": 1793789665884,
     "symbol": "ES",
-    "spot": 7681.75,
+    "spot": 7667.5,
     "flip": 7733.5,
     "callWall": 7731.25,
     "putWall": 7530.5,
     "netGex": -34570000000,
     "regime": "short",
-    "long": 21,
-    "short": 58,
-    "straddle": 21,
+    "long": 25,
+    "short": 50,
+    "straddle": 25,
     "bias": "Short bias"
   },
   {
-    "ts": 1793789405797,
+    "ts": 1793789665884,
     "symbol": "SPX",
     "spot": 7568.9,
     "flip": 7702.25,
@@ -33544,9 +33544,9 @@
     "bias": "Short bias"
   },
   {
-    "ts": 1793789405797,
+    "ts": 1793789665884,
     "symbol": "SPY",
-    "spot": 762.9,
+    "spot": 761.58,
     "flip": 773.22,
     "callWall": 770,
     "putWall": 750,
@@ -33558,9 +33558,9 @@
     "bias": "Short bias"
   },
   {
-    "ts": 1793789405797,
+    "ts": 1793789665884,
     "symbol": "NQ",
-    "spot": 28648,
+    "spot": 28580,
     "flip": 29774.75,
     "callWall": 29814,
     "putWall": 27629,
@@ -33572,7 +33572,7 @@
     "bias": "Short bias"
   },
   {
-    "ts": 1793789405797,
+    "ts": 1793789665884,
     "symbol": "NDX",
     "spot": 28180.25,
     "flip": 29635.83,
@@ -33586,9 +33586,9 @@
     "bias": "Short bias"
   },
   {
-    "ts": 1793789405797,
+    "ts": 1793789665884,
     "symbol": "QQQ",
-    "spot": 693.79,
+    "spot": 692.19,
     "flip": 727.97,
     "callWall": 710,
     "putWall": 680,
