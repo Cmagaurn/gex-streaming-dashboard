@@ -577,7 +577,7 @@ function renderLevels(zg, symbol, schwab) {
     els.regime.textContent = `Regime: ${regime.toUpperCase()}`;
     els.regime.className = "level regime " + (regime === "short" || regime === "negative" ? "negative" : regime === "long" || regime === "positive" ? "positive" : "");
   }
-  if (els.meta) els.meta.textContent = `Levels: ZeroGEX / AlgoX (${symbol}) \u00b7 Profile: AlgoX`;
+  if (els.meta) els.meta.textContent = `Levels: ${source} (${symbol}) \u00b7 Profile: AlgoX`;
 }
 
 function renderChart(algox, focusSpot, zg, symbol, schwab) {
@@ -619,59 +619,100 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       const key = Math.round(s.strike / NEAR_SPOT_STEP) * NEAR_SPOT_STEP;
       if (!binned[key]) binned[key] = { strike: key, gex: 0, n: 0 };
       binned[key].gex += s.gex;
-      binned[key].n++;
+      binned[key].n += 1;
     });
-    const nearBinned = Object.values(binned).sort((a, b) => a.strike - b.strike);
+    const nearBinned = Object.values(binned).map(b => ({ strike: b.strike, gex: b.gex / b.n }));
     strikes = [...far, ...nearBinned].sort((a, b) => a.strike - b.strike);
   }
 
   const labels = strikes.map(s => s.strike.toLocaleString());
   const values = strikes.map(s => s.gex);
-  const colors = values.map(v => v >= 0 ? "#3fb950" : "#f85149");
+  const colors = values.map(v => (v >= 0 ? "#3fb950" : "#f85149"));
 
-  // Expand x scale so Schwab bars fit
-  const maxAbs = Math.max(...values.map(Math.abs), 1);
-  const xMax = Math.ceil(maxAbs * 1.15);
+  let schwabOverlay = null;
+  let schwabMaxAbs = 0;
+  if (schwab && schwab.strikes && schwab.gex) {
+    // Scale Schwab strikes the same way AlgoX strikes are scaled
+    const schwabMap = {};
+    schwab.strikes.forEach((s, i) => {
+      const scaled = scaleStrike(s, symbol);
+      if (scaled != null) schwabMap[scaled] = schwab.gex[i];
+    });
+    schwabOverlay = strikes.map(s => {
+      const raw = schwabMap[s.strike];
+      const v = raw != null ? raw / 1e6 : null;
+      if (v != null) schwabMaxAbs = Math.max(schwabMaxAbs, Math.abs(v));
+      return v;
+    });
+  }
+  const algoxMaxAbs = Math.max(...values.map(v => Math.abs(v || 0)), 0);
+  const xMax = Math.max(algoxMaxAbs, schwabMaxAbs) * 1.15 || 100;
 
-  if (chart) chart.destroy();
+  function findIdx(target) {
+    if (target == null) return -1;
+    let best = 0, bestDiff = Infinity;
+    strikes.forEach((s, i) => {
+      const d = Math.abs(s.strike - target);
+      if (d < bestDiff) { bestDiff = d; best = i; }
+    });
+    return best;
+  }
+  const focusIdx = findIdx(focusSpot);
+  const flipIdx = findIdx(zg?.flip);
+  const callIdx = findIdx(zg?.callWall);
+  const putIdx = findIdx(zg?.putWall);
+
+  if (chart) {
+    try { chart.destroy(); } catch (e) { console.warn("chart.destroy failed", e); }
+    chart = null;
+  }
 
   const levelsPlugin = {
-    id: "levels",
-    afterDraw(chart) {
-      const ctx = chart.ctx;
-      const yScale = chart.scales.y;
-      const xScale = chart.scales.x;
+    id: "levelsLines",
+    afterDraw(chartInstance) {
+      const yScale = chartInstance.scales.y;
+      const xScale = chartInstance.scales.x;
       if (!yScale || !xScale) return;
+      const ctx = chartInstance.ctx;
 
-      const findIdx = (val) => {
-        if (val == null) return -1;
-        let best = -1, bestDist = Infinity;
-        labels.forEach((l, i) => {
-          const n = parseFloat(l.replace(/,/g, ""));
-          const d = Math.abs(n - val);
-          if (d < bestDist) { bestDist = d; best = i; }
+      if (schwabOverlay) {
+        const meta = chartInstance.getDatasetMeta(0);
+        meta.data.forEach((bar, i) => {
+          const v = schwabOverlay[i];
+          if (v == null || !bar) return;
+          const x = xScale.getPixelForValue(v);
+          const y = bar.y;
+          const height = bar.height * 0.7;
+          const baseX = xScale.getPixelForValue(0);
+          ctx.save();
+          ctx.fillStyle = v >= 0 ? "rgba(0,255,255,0.7)" : "rgba(255,100,255,0.7)";
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 1;
+          const left = Math.min(baseX, x);
+          const width = Math.abs(x - baseX);
+          ctx.fillRect(left, y - height / 2, width, height);
+          ctx.strokeRect(left, y - height / 2, width, height);
+          ctx.restore();
         });
-        return best;
-      };
+      }
 
       const draw = (idx, color, label) => {
         if (idx < 0) return;
-        const y = yScale.getPixelForTick(idx);
+        const y = yScale.getPixelForValue(idx);
+        if (y < yScale.top || y > yScale.bottom) return;
         ctx.save();
         ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2;
         ctx.setLineDash([4, 4]);
         ctx.beginPath();
         ctx.moveTo(xScale.left, y);
         ctx.lineTo(xScale.right, y);
         ctx.stroke();
-        ctx.setLineDash([]);
         ctx.fillStyle = color;
         ctx.font = "11px sans-serif";
-        ctx.fillText(label, xScale.right - 80, y - 4);
+        ctx.fillText(label, xScale.left + 6, y - 4);
         ctx.restore();
       };
-
       const spot = schwab?.spot ?? focusSpot;
       const flip = schwab?.gammaFlip ?? zg?.flip;
       const call = schwab?.callWall ?? zg?.callWall;
