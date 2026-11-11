@@ -81,6 +81,13 @@ const els = {
   shortProb: document.getElementById("shortProb"),
   straddleProb: document.getElementById("straddleProb"),
   biasLabel: document.getElementById("biasLabel"),
+  schwabOverlay: document.getElementById("schwabOverlay"),
+  schwabNote: document.getElementById("schwabNote"),
+  schwabSpot: document.getElementById("schwabSpot"),
+  schwabFlip: document.getElementById("schwabFlip"),
+  schwabCall: document.getElementById("schwabCall"),
+  schwabPut: document.getElementById("schwabPut"),
+  schwabNet: document.getElementById("schwabNet"),
 };
 
 function setStatus(msg, isError = false) {
@@ -142,6 +149,17 @@ async function fetchAlgoX(symbol) {
   const res = await fetch(`${ALGOX_BASE}/${algoxSym}?strikes=1`);
   if (!res.ok) throw new Error(`AlgoX ${res.status}`);
   return res.json();
+}
+
+async function fetchSchwabGex(symbol) {
+  try {
+    const res = await fetch(`/api/schwab-gex?symbol=${encodeURIComponent(symbol)}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    console.warn("Schwab fetch failed", e);
+    return null;
+  }
 }
 
 function scaleStrike(value, symbol) {
@@ -245,7 +263,7 @@ function renderHistoryChart(hist, symbol) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        title: { display: true, text: `5-Day Net GEX Trend — ${symbol} (${filtered.length} points)`, color: "#e6edf3" },
+        title: { display: true, text: `5-Day Net GEX Trend \u2014 ${symbol} (${filtered.length} points)`, color: "#e6edf3" },
         tooltip: {
           callbacks: {
             label: (ctx) => "Net GEX: " + formatGex(ctx.parsed.y)
@@ -291,7 +309,7 @@ function renderMetricsChart(hist, symbol) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: true, labels: { color: "#e6edf3" } },
-        title: { display: true, text: `Indicator Metrics History — ${symbol} (${filtered.length} points)`, color: "#e6edf3" },
+        title: { display: true, text: `Indicator Metrics History \u2014 ${symbol} (${filtered.length} points)`, color: "#e6edf3" },
       },
       scales: {
         x: { ticks: { color: "#8b949e", maxTicksLimit: 12 }, grid: { color: "#30363d" } },
@@ -333,7 +351,7 @@ function renderMultiChart(hist) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: true, labels: { color: "#e6edf3" } },
-        title: { display: true, text: "5-Day Net GEX — All Tickers", color: "#e6edf3" },
+        title: { display: true, text: "5-Day Net GEX \u2014 All Tickers", color: "#e6edf3" },
         tooltip: {
           callbacks: {
             label: (ctx) => `${ctx.dataset.label}: ${formatGex(ctx.parsed.y)}`
@@ -435,25 +453,57 @@ async function updateTickerGexBoxes() {
   });
 }
 
+function updateSchwabBoxes(schwab) {
+  const set = (el, val, color) => {
+    if (!el) return;
+    el.textContent = val != null ? (typeof val === "number" ? val.toLocaleString() : val) : "--";
+    el.style.color = color || "#ffffff";
+  };
+  if (!schwab) {
+    set(els.schwabSpot, null);
+    set(els.schwabFlip, null);
+    set(els.schwabCall, null);
+    set(els.schwabPut, null);
+    set(els.schwabNet, null);
+    return;
+  }
+  set(els.schwabSpot, schwab.spot);
+  set(els.schwabFlip, schwab.gammaFlip);
+  set(els.schwabCall, schwab.callWall);
+  set(els.schwabPut, schwab.putWall);
+  const net = schwab.netGex;
+  set(els.schwabNet, net != null ? formatGex(net) : null, net >= 0 ? "#00ffff" : "#ff64ff");
+}
+
 async function fetchAll() {
   const symbol = (els.tickerSelect && els.tickerSelect.value) || "ES";
   currentSymbol = symbol;
+  const showSchwab = els.schwabOverlay && els.schwabOverlay.checked;
+  if (els.schwabNote) els.schwabNote.textContent = showSchwab ? "(fetching Schwab...)" : "";
   setStatus(`Loading ${symbol} levels + profile + markets\u2026`);
   try {
     const yahooSym = YAHOO_MAP[symbol] || symbol;
-    const [zgRes, algoxRes, price, tnx, oil, vix] = await Promise.allSettled([
+    const promises = [
       fetchZeroGEX(symbol),
       fetchAlgoX(symbol),
       fetchYahoo(yahooSym),
       fetchYahoo("^TNX"),
       fetchYahoo("BZ=F"),
       fetchYahoo("^VIX"),
-    ]);
+    ];
+    if (showSchwab) promises.push(fetchSchwabGex(symbol));
+    const results = await Promise.allSettled(promises);
+    const [zgRes, algoxRes, price, tnx, oil, vix] = results;
+    const schwab = showSchwab && results[6] && results[6].status === "fulfilled" ? results[6].value : null;
+    if (showSchwab && els.schwabNote) {
+      els.schwabNote.textContent = schwab ? "(Schwab overlay active)" : "(Schwab unavailable)";
+    }
     const zg = zgRes.status === "fulfilled" ? zgRes.value : null;
     const algox = algoxRes.status === "fulfilled" ? algoxRes.value : null;
     if (!zg) console.warn("ZeroGEX failed", zgRes.reason);
 
     if (zg) renderLevels(zg, symbol);
+    updateSchwabBoxes(schwab);
     updateMarketPrices(price?.status === "fulfilled" ? price.value : null,
                        tnx?.status === "fulfilled" ? tnx.value : null,
                        oil?.status === "fulfilled" ? oil.value : null,
@@ -461,8 +511,9 @@ async function fetchAll() {
                        symbol, zg?.spot);
     const hist = await loadHistory();
     const symbolHist = filterHist(hist, symbol);
-    renderIndicator(zg, symbolHist);
-    renderChart(algox, zg.spot || price, zg, symbol);
+    if (zg) renderIndicator(zg, symbolHist);
+    const focusSpot = schwab?.spot ?? zg?.spot ?? (price?.status === "fulfilled" ? price.value : null);
+    renderChart(algox, focusSpot, zg, symbol, schwab);
     renderHistoryChart(hist, symbol);
     renderMetricsChart(hist, symbol);
     renderMultiChart(hist);
@@ -494,7 +545,6 @@ function updateMarketPrices(price, tnx, oil, vix, symbol, spot) {
   if (els.vixPrice) els.vixPrice.innerHTML = `VIX: ${vix != null ? vix.toFixed(2) : "--"}${vixArrow}`;
   if (vix != null) prevVix = vix;
 
-  // Implied move: VIX / 15.87 × spot
   const refSpot = spot || price;
   const im = computeImpliedMove(refSpot, vix);
   if (els.impliedMove) {
@@ -524,24 +574,21 @@ function renderLevels(zg, symbol) {
   if (els.meta) els.meta.textContent = `Levels: ZeroGEX free delayed (${symbol}) \u00b7 Profile: AlgoX`;
 }
 
-function renderChart(algox, focusSpot, zg, symbol) {
+function renderChart(algox, focusSpot, zg, symbol, schwab) {
   const canvas = els.canvas;
   if (!canvas) {
     console.warn("gexChart canvas missing");
     return;
   }
-  // Wait briefly if the canvas has no layout yet (common on hard refresh)
   if (canvas.clientHeight < 50) {
     console.warn("Canvas height too small, retrying chart in 300ms");
-    setTimeout(() => renderChart(algox, focusSpot, zg, symbol), 300);
+    setTimeout(() => renderChart(algox, focusSpot, zg, symbol, schwab), 300);
     return;
   }
 
   if (!algox || !algox.strikes || algox.strikes.length === 0) {
     setStatus("AlgoX profile unavailable. Levels still shown.", true);
-    // Keep existing chart if we have one so the user does not see a blank canvas
     if (!chart) {
-      // Draw a simple placeholder so the area is not empty
       const ctx = canvas.getContext("2d");
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = "#8b949e";
@@ -576,6 +623,24 @@ function renderChart(algox, focusSpot, zg, symbol) {
   const values = strikes.map(s => s.gex);
   const colors = values.map(v => (v >= 0 ? "#3fb950" : "#f85149"));
 
+  let schwabOverlay = null;
+  let schwabMaxAbs = 0;
+  if (schwab && schwab.strikes && schwab.gex) {
+    const schwabMap = {};
+    schwab.strikes.forEach((s, i) => {
+      const scaled = scaleStrike(s, symbol);
+      if (scaled != null) schwabMap[scaled] = schwab.gex[i];
+    });
+    schwabOverlay = strikes.map(s => {
+      const raw = schwabMap[s.strike];
+      const v = raw != null ? raw / 1e6 : null;
+      if (v != null) schwabMaxAbs = Math.max(schwabMaxAbs, Math.abs(v));
+      return v;
+    });
+  }
+  const algoxMaxAbs = Math.max(...values.map(v => Math.abs(v || 0)), 0);
+  const xMax = Math.max(algoxMaxAbs, schwabMaxAbs) * 1.15 || 100;
+
   function findIdx(target) {
     if (target == null) return -1;
     let best = 0, bestDiff = Infinity;
@@ -585,10 +650,6 @@ function renderChart(algox, focusSpot, zg, symbol) {
     });
     return best;
   }
-  const focusIdx = findIdx(focusSpot);
-  const flipIdx = findIdx(zg?.flip);
-  const callIdx = findIdx(zg?.callWall);
-  const putIdx = findIdx(zg?.putWall);
 
   if (chart) {
     try { chart.destroy(); } catch (e) { console.warn("chart.destroy failed", e); }
@@ -602,6 +663,28 @@ function renderChart(algox, focusSpot, zg, symbol) {
       const xScale = chartInstance.scales.x;
       if (!yScale || !xScale) return;
       const ctx = chartInstance.ctx;
+
+      if (schwabOverlay) {
+        const meta = chartInstance.getDatasetMeta(0);
+        meta.data.forEach((bar, i) => {
+          const v = schwabOverlay[i];
+          if (v == null || !bar) return;
+          const x = xScale.getPixelForValue(v);
+          const y = bar.y;
+          const height = bar.height * 0.7;
+          const baseX = xScale.getPixelForValue(0);
+          ctx.save();
+          ctx.fillStyle = v >= 0 ? "rgba(0,255,255,0.7)" : "rgba(255,100,255,0.7)";
+          ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 1;
+          const left = Math.min(baseX, x);
+          const width = Math.abs(x - baseX);
+          ctx.fillRect(left, y - height / 2, width, height);
+          ctx.strokeRect(left, y - height / 2, width, height);
+          ctx.restore();
+        });
+      }
+
       const draw = (idx, color, label) => {
         if (idx < 0) return;
         const y = yScale.getPixelForValue(idx);
@@ -619,10 +702,14 @@ function renderChart(algox, focusSpot, zg, symbol) {
         ctx.fillText(label, xScale.left + 6, y - 4);
         ctx.restore();
       };
-      draw(focusIdx, "#d29922", "Spot " + (focusSpot != null ? focusSpot.toLocaleString() : ""));
-      draw(flipIdx, "#58a6ff", "Flip " + (zg?.flip != null ? zg.flip.toLocaleString() : ""));
-      draw(callIdx, "#3fb950", "Call " + (zg?.callWall != null ? zg.callWall.toLocaleString() : ""));
-      draw(putIdx, "#f85149", "Put " + (zg?.putWall != null ? zg.putWall.toLocaleString() : ""));
+      const spot = schwab?.spot ?? focusSpot;
+      const flip = schwab?.gammaFlip ?? zg?.flip;
+      const call = schwab?.callWall ?? zg?.callWall;
+      const put = schwab?.putWall ?? zg?.putWall;
+      draw(findIdx(spot), "#ffffff", "Spot " + (spot != null ? spot.toLocaleString() : ""));
+      draw(findIdx(flip), "#00ffff", "Flip " + (flip != null ? flip.toLocaleString() : ""));
+      draw(findIdx(call), "#00ffff", "Call " + (call != null ? call.toLocaleString() : ""));
+      draw(findIdx(put), "#ff64ff", "Put " + (put != null ? put.toLocaleString() : ""));
     }
   };
 
@@ -632,7 +719,7 @@ function renderChart(algox, focusSpot, zg, symbol) {
     data: {
       labels,
       datasets: [{
-        label: "Net GEX ($M per 1%)",
+        label: "AlgoX / ZeroGEX ($M)",
         data: values,
         backgroundColor: colors,
         borderWidth: 0,
@@ -646,7 +733,18 @@ function renderChart(algox, focusSpot, zg, symbol) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: { 
+          display: true, 
+          position: "top",
+          labels: { 
+            color: "#ffffff",
+            font: { size: 12 },
+            generateLabels: () => [
+              { text: "AlgoX / ZeroGEX ($M)", fillStyle: "#3fb950", strokeStyle: "#3fb950", lineWidth: 0, fontColor: "#ffffff" },
+              { text: "Schwab real-time overlay", fillStyle: "rgba(0,255,255,0.7)", strokeStyle: "#00ffff", lineWidth: 1, fontColor: "#00ffff" }
+            ]
+          }
+        },
         title: {
           display: true,
           text: `${symbol} Gamma Profile (full spread) \u00b7 25-pt bars within \u00b1500 of spot`,
@@ -654,25 +752,33 @@ function renderChart(algox, focusSpot, zg, symbol) {
         },
       },
       scales: {
-        x: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } },
-        y: { ticks: { color: "#8b949e", autoSkip: false, font: { size: 9 } }, grid: { color: "#30363d" } },
-      },
-    },
+        x: {
+          title: { display: true, text: "Net GEX ($M)", color: "#8b949e" },
+          ticks: { color: "#8b949e" },
+          grid: { color: "#30363d" },
+          suggestedMin: -xMax,
+          suggestedMax: xMax
+        },
+        y: {
+          ticks: { color: "#8b949e" },
+          grid: { color: "#30363d" }
+        }
+      }
+    }
   });
-  } catch (err) {
-    console.error("Chart.js failed to create gamma profile", err);
-    setStatus("Chart render failed: " + err.message, true);
+  } catch (e) {
+    console.error("Chart creation failed", e);
+    setStatus("Chart render error. Levels still shown.", true);
   }
 }
 
+if (els.loadBtn) els.loadBtn.addEventListener("click", fetchAll);
+if (els.tickerSelect) els.tickerSelect.addEventListener("change", fetchAll);
+
 function startPolling() {
   if (pollTimer) clearInterval(pollTimer);
-  fetchAll();
   pollTimer = setInterval(fetchAll, POLL_INTERVAL);
 }
 
-if (els.loadBtn) els.loadBtn.addEventListener("click", startPolling);
-if (els.tickerSelect) els.tickerSelect.addEventListener("change", startPolling);
-
+fetchAll();
 startPolling();
-
