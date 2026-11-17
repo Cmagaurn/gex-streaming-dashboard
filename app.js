@@ -479,7 +479,7 @@ function updateSchwabBoxes(schwab) {
     return;
   }
   set(els.schwabSpot, schwab.spot);
-  set(els.schwabFlip, schwab.gammaFlip);
+  set(els.schwabFlip, schwab.gammaFlip != null ? schwab.gammaFlip : '--');
   set(els.schwabCall, schwab.callWall);
   set(els.schwabPut, schwab.putWall);
   const net = schwab.netGex;
@@ -647,10 +647,13 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       const scaled = scaleStrike(s, symbol);
       if (scaled != null) schwabMap[scaled] = schwab.gex[i];
     });
+    const binMap = {};
+    Object.entries(schwabMap).forEach(([k, gex]) => {
+      const bin = Math.round(parseFloat(k) / NEAR_SPOT_STEP) * NEAR_SPOT_STEP;
+      binMap[bin] = (binMap[bin] || 0) + gex;
+    });
     schwabOverlay = strikes.map(s => {
-      // snap to same 25-pt bin used by ZeroGEX near-spot logic
-      const bin = Math.round(s.strike / NEAR_SPOT_STEP) * NEAR_SPOT_STEP;
-      const raw = schwabMap[bin] ?? schwabMap[s.strike];
+      const raw = binMap[s.strike];
       const v = raw != null ? raw / 1e6 : null;
       if (v != null) schwabMaxAbs = Math.max(schwabMaxAbs, Math.abs(v));
       return v;
