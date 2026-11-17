@@ -697,6 +697,31 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       const xScale = chartInstance.scales.x;
       if (!yScale || !xScale) return;
       const ctx = chartInstance.ctx;
+      // Draw OI profile on the right side (proxy volume)
+      if (schwab && schwab.oiStrikes && schwab.oiValues) {
+        const oiMap = {};
+        schwab.oiStrikes.forEach((os, i) => { oiMap[os] = schwab.oiValues[i]; });
+        let maxOI = 1;
+        Object.values(oiMap).forEach(v => { if (v > maxOI) maxOI = v; });
+        const meta = chartInstance.getDatasetMeta(0);
+        meta.data.forEach((bar, i) => {
+          const strike = strikes[i].strike;
+          let best = 0, bestDiff = Infinity;
+          Object.keys(oiMap).forEach(k => {
+            const d = Math.abs(parseFloat(k) - strike);
+            if (d < bestDiff && d <= NEAR_SPOT_STEP * 2) { bestDiff = d; best = oiMap[k]; }
+          });
+          if (best <= 0 || !bar) return;
+          const frac = best / maxOI;
+          const barH = bar.height * 0.6;
+          const width = (xScale.right - xScale.left) * 0.35 * frac;
+          ctx.save();
+          ctx.fillStyle = "rgba(139,148,158,0.45)";
+          ctx.fillRect(xScale.right - width, bar.y - barH / 2, width, barH);
+          ctx.restore();
+        });
+      }
+
 
       const draw = (idx, color, label) => {
         if (idx < 0) return;
@@ -750,22 +775,6 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
           categoryPercentage: 0.8,
           barPercentage: 0.45,
           xAxisID: "x",
-        },
-        {
-          label: "OI",
-          data: (schwab && schwab.oiValues) ? strikes.map(s => {
-            let best = 0, bestDiff = Infinity;
-            (schwab.oiStrikes || []).forEach((os, i) => {
-              const d = Math.abs(os - s.strike);
-              if (d < bestDiff && d <= NEAR_SPOT_STEP) { bestDiff = d; best = schwab.oiValues[i]; }
-            });
-            return best;
-          }) : [],
-          backgroundColor: "rgba(139,148,158,0.4)",
-          borderWidth: 0,
-          categoryPercentage: 0.5,
-          barPercentage: 0.25,
-          xAxisID: "x1",
         }
       ]
     },
