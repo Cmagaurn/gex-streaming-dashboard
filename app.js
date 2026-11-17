@@ -245,7 +245,7 @@ function filterHist(hist, symbol) {
   return hist.filter(e => (e.symbol || "ES") === symbol);
 }
 
-function renderHistoryChart(hist, symbol) {
+async function renderHistoryChart(hist, symbol) {
   if (!els.historyCanvas) return;
   const filtered = filterHist(hist, symbol);
   const labels = filtered.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
@@ -254,20 +254,54 @@ function renderHistoryChart(hist, symbol) {
 
   if (historyChart) historyChart.destroy();
 
+  // Fetch 5d price series for right axis (best-effort)
+  let priceData = labels.map(() => null);
+  try {
+    const ySym = symbol === "ES" ? "ES=F" : (symbol === "NQ" ? "NQ=F" : symbol);
+    const yRes = await fetch(`/api/yahoo?symbol=${encodeURIComponent(ySym)}&range=5d&interval=15m`);
+    if (yRes.ok) {
+      const yData = await yRes.json();
+      const series = yData.series || [];
+      if (series.length && filtered.length) {
+        priceData = filtered.map(e => {
+          let best = null, bestDiff = Infinity;
+          for (const p of series) {
+            const d = Math.abs(p.t - e.ts);
+            if (d < bestDiff) { bestDiff = d; best = p.c; }
+          }
+          return bestDiff < 30 * 60 * 1000 ? best : null;
+        });
+      }
+    }
+  } catch (e) { /* price overlay optional */ }
+
   historyChart = new Chart(els.historyCanvas, {
     type: "line",
     data: {
       labels,
-      datasets: [{
-        label: "Net GEX",
-        data: values,
-        borderColor: COLORS[symbol] || "#58a6ff",
-        backgroundColor: "rgba(88,166,255,0.1)",
-        fill: true,
-        tension: 0.2,
-        pointBackgroundColor: colors,
-        pointRadius: 3,
-      }]
+      datasets: [
+        {
+          label: "Net GEX",
+          data: values,
+          borderColor: COLORS[symbol] || "#58a6ff",
+          backgroundColor: "rgba(88,166,255,0.1)",
+          fill: true,
+          tension: 0.2,
+          pointBackgroundColor: colors,
+          pointRadius: 3,
+          yAxisID: "y",
+        },
+        {
+          label: "Price",
+          data: priceData,
+          borderColor: "#d2a8ff",
+          backgroundColor: "transparent",
+          tension: 0.2,
+          pointRadius: 0,
+          borderWidth: 1.5,
+          yAxisID: "y1",
+        }
+      ]
     },
     options: {
       responsive: true,
@@ -288,7 +322,14 @@ function renderHistoryChart(hist, symbol) {
             color: "#8b949e",
             callback: (v) => formatGex(v)
           },
-          grid: { color: "#30363d" }
+          grid: { color: "#30363d" },
+          position: "left",
+        },
+        y1: {
+          position: "right",
+          title: { display: true, text: "Price", color: "#d2a8ff" },
+          ticks: { color: "#d2a8ff" },
+          grid: { drawOnChartArea: false },
         },
       },
     },
