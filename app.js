@@ -552,7 +552,8 @@ function updateMarketPrices(price, tnx, oil, vix, symbol, spot) {
   const im = computeImpliedMove(refSpot, vix);
   if (els.impliedMove) {
     if (im) {
-      els.impliedMove.textContent = `Implied Move: \u00b1${im.points.toFixed(1)} pts (${im.pct.toFixed(2)}%)`;
+      const todayMove = (spot != null && openPrice != null) ? (spot - openPrice) : null;
+      els.impliedMove.innerHTML = `Implied Move: \u00b1${im.points.toFixed(1)} pts (${im.pct.toFixed(2)}%)<br><span style="color:#8b949e;font-size:0.85rem">Today: ${todayMove != null ? (todayMove >= 0 ? "+" : "") + todayMove.toFixed(1) : "--"} pts</span>`;
     } else {
       els.impliedMove.textContent = "Implied Move: --";
     }
@@ -635,7 +636,9 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       if (scaled != null) schwabMap[scaled] = schwab.gex[i];
     });
     schwabOverlay = strikes.map(s => {
-      const raw = schwabMap[s.strike];
+      // snap to same 25-pt bin used by ZeroGEX near-spot logic
+      const bin = Math.round(s.strike / NEAR_SPOT_STEP) * NEAR_SPOT_STEP;
+      const raw = schwabMap[bin] ?? schwabMap[s.strike];
       const v = raw != null ? raw / 1e6 : null;
       if (v != null) schwabMaxAbs = Math.max(schwabMaxAbs, Math.abs(v));
       return v;
@@ -666,27 +669,6 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       const xScale = chartInstance.scales.x;
       if (!yScale || !xScale) return;
       const ctx = chartInstance.ctx;
-
-      if (schwabOverlay) {
-        const meta = chartInstance.getDatasetMeta(0);
-        meta.data.forEach((bar, i) => {
-          const v = schwabOverlay[i];
-          if (v == null || !bar) return;
-          const x = xScale.getPixelForValue(v);
-          const y = bar.y;
-          const height = bar.height * 0.7;
-          const baseX = xScale.getPixelForValue(0);
-          ctx.save();
-          ctx.fillStyle = v >= 0 ? "rgba(0,255,255,0.7)" : "rgba(255,100,255,0.7)";
-          ctx.strokeStyle = "#ffffff";
-          ctx.lineWidth = 1;
-          const left = Math.min(baseX, x);
-          const width = Math.abs(x - baseX);
-          ctx.fillRect(left, y - height / 2, width, height);
-          ctx.strokeRect(left, y - height / 2, width, height);
-          ctx.restore();
-        });
-      }
 
       const draw = (idx, color, label) => {
         if (idx < 0) return;
@@ -796,23 +778,40 @@ function startPolling() {
 
 
 function updateEsQuotes(schwab) {
-  const el = document.getElementById("esQuotes");
-  if (!el) return;
+  const box = document.getElementById("schwabSpot");
+  if (!box) return;
   if (!schwab || !schwab.esQuotes || !schwab.esQuotes.length) {
-    el.textContent = "";
+    box.textContent = '--';
     return;
   }
-  el.innerHTML = schwab.esQuotes.map(q => 
-    `<span style="margin-right:12px">${q.symbol}: ${q.last != null ? q.last.toLocaleString() : "--"}</span>`
+  const front = schwab.esQuotes[0];
+  const others = schwab.esQuotes.slice(1, 3).map(q => 
+    `<span style="font-size:0.75rem;color:#8b949e;margin-left:6px">${q.symbol.replace("/","")}: ${q.last?.toLocaleString() ?? "--"}</span>`
   ).join("");
+  box.innerHTML = `${front.symbol.replace("/","")}<br>${front.last?.toLocaleString() ?? "--"}${others}`;
 }
 
 
+
+const SKEW_STORE_KEY = "gex_skew_rr";
+function loadSkewStore() {
+  try { return JSON.parse(localStorage.getItem(SKEW_STORE_KEY) || "[]"); } catch { return []; }
+}
+function saveSkewPoint(rr) {
+  if (rr == null) return;
+  const store = loadSkewStore();
+  store.push({ ts: new Date().toISOString(), skewRR: rr });
+  // keep last 5 days
+  const cutoff = Date.now() - 5 * 24 * 60 * 60 * 1000;
+  const trimmed = store.filter(p => new Date(p.ts).getTime() > cutoff);
+  localStorage.setItem(SKEW_STORE_KEY, JSON.stringify(trimmed.slice(-500)));
+}
+
 let skewChart = null;
-function renderSkewChart(hist) {
+function renderSkewChart() {
   const canvas = document.getElementById("skewChart");
   if (!canvas) return;
-  const points = hist.filter(e => e.skewRR != null);
+  const points = loadSkewStore();
   const labels = points.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
   const values = points.map(e => e.skewRR);
   if (skewChart) skewChart.destroy();
@@ -850,6 +849,8 @@ function updateSkew(schwab) {
   if (!el) return;
   if (schwab && schwab.skewRR != null) {
     el.textContent = `25Δ RR: ${schwab.skewRR.toFixed(2)} vol pts`;
+    saveSkewPoint(schwab.skewRR);
+    renderSkewChart();
     el.style.color = schwab.skewRR > 0 ? "#f85149" : "#3fb950";
   } else {
     el.textContent = "25Δ RR: --";
