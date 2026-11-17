@@ -647,15 +647,20 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       const scaled = scaleStrike(s, symbol);
       if (scaled != null) schwabMap[scaled] = schwab.gex[i];
     });
-    const binMap = {};
-    Object.entries(schwabMap).forEach(([k, gex]) => {
-      const bin = Math.round(parseFloat(k) / NEAR_SPOT_STEP) * NEAR_SPOT_STEP;
-      binMap[bin] = (binMap[bin] || 0) + gex;
-    });
-    schwabOverlay = strikes.map(s => {
-      const raw = binMap[s.strike];
-      const v = raw != null ? raw / 1e6 : null;
-      if (v != null) schwabMaxAbs = Math.max(schwabMaxAbs, Math.abs(v));
+    // Build Schwab series aligned to the same strike keys used by the chart
+    const chartStrikes = strikes.map(s => s.strike);
+    schwabOverlay = chartStrikes.map(cs => {
+      let best = null, bestDiff = Infinity;
+      Object.keys(schwabMap).forEach(k => {
+        const sk = parseFloat(k);
+        const d = Math.abs(sk - cs);
+        if (d < bestDiff && d <= NEAR_SPOT_STEP) {
+          bestDiff = d;
+          best = schwabMap[k];
+        }
+      });
+      const v = best != null ? best / 1e6 : 0;
+      schwabMaxAbs = Math.max(schwabMaxAbs, Math.abs(v));
       return v;
     });
   }
@@ -732,6 +737,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
           label: "Schwab ($M)",
           data: schwabOverlay || [],
           backgroundColor: schwabColors,
+          minBarLength: 2,
           borderWidth: 0,
           categoryPercentage: 0.8,
           barPercentage: 0.45,
