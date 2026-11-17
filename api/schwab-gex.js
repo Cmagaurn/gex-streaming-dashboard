@@ -162,6 +162,32 @@ export default async function handler(req, res) {
       } catch (e) {}
     }
 
+    
+    // Put/call ratios and OI by strike (front expirations)
+    let putVol = 0, callVol = 0, putOI = 0, callOI = 0;
+    const oiByStrike = {};
+    const addOI = (expMap, isPut) => {
+      for (const strikes of Object.values(expMap || {})) {
+        for (const [strikeStr, contracts] of Object.entries(strikes)) {
+          const strike = parseFloat(strikeStr);
+          if (isNaN(strike)) continue;
+          for (const c of contracts) {
+            const vol = c.totalVolume || 0;
+            const oi = c.openInterest || 0;
+            if (isPut) { putVol += vol; putOI += oi; }
+            else { callVol += vol; callOI += oi; }
+            oiByStrike[strike] = (oiByStrike[strike] || 0) + oi;
+          }
+        }
+      }
+    };
+    addOI(chain.callExpDateMap, false);
+    addOI(chain.putExpDateMap, true);
+    const pcVol = callVol ? (putVol / callVol) : null;
+    const pcOI = callOI ? (putOI / callOI) : null;
+    const oiStrikes = Object.keys(oiByStrike).map(Number).sort((a,b)=>a-b);
+    const oiValues = oiStrikes.map(s => oiByStrike[s]);
+
     return res.status(200).json({
       spot,
       strikes,
@@ -172,6 +198,10 @@ export default async function handler(req, res) {
       gammaFlip,
       skewRR,
       esQuotes,
+      pcVol,
+      pcOI,
+      oiStrikes,
+      oiValues,
       source: "schwab",
     });
   } catch (err) {
