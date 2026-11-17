@@ -133,7 +133,7 @@ export default async function handler(req, res) {
           if (d < bestPutDiff) { bestPutDiff = d; bestPut = c; }
         }
         if (bestCall && bestPut) {
-          skewRR = (bestPut.volatility - bestCall.volatility) * 100; // in vol points
+          skewRR = bestPut.volatility - bestCall.volatility; // already in vol points
         }
       }
     } catch (e) {}
