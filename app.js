@@ -583,7 +583,10 @@ async function fetchAll() {
     if (zg) renderIndicator(zg, symbolHist);
     const focusSpot = schwab?.spot ?? zg?.spot ?? (price?.status === "fulfilled" ? price.value : null);
     renderChart(algox, focusSpot, zg, symbol, schwab);
+    window._lastHist = hist;
+    window._lastSymbol = symbol;
     renderHistoryChart(hist, symbol);
+    renderSkewChart(hist, symbol);
     renderMetricsChart(hist, symbol);
     renderMultiChart(hist);
     renderSkewChart(hist);
@@ -924,25 +927,11 @@ function updateEsQuotes(schwab) {
 
 
 
-const SKEW_STORE_KEY = "gex_skew_rr";
-function loadSkewStore() {
-  try { return JSON.parse(localStorage.getItem(SKEW_STORE_KEY) || "[]"); } catch { return []; }
-}
-function saveSkewPoint(rr) {
-  if (rr == null) return;
-  const store = loadSkewStore();
-  store.push({ ts: new Date().toISOString(), skewRR: rr });
-  // keep last 5 days
-  const cutoff = Date.now() - 5 * 24 * 60 * 60 * 1000;
-  const trimmed = store.filter(p => new Date(p.ts).getTime() > cutoff);
-  localStorage.setItem(SKEW_STORE_KEY, JSON.stringify(trimmed.slice(-500)));
-}
-
 let skewChart = null;
-function renderSkewChart() {
+function renderSkewChart(hist, symbol) {
   const canvas = document.getElementById("skewChart");
   if (!canvas) return;
-  const points = loadSkewStore();
+  const points = (hist || []).filter(e => (e.symbol || "ES") === symbol && e.skewRR != null);
   const labels = points.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
   const values = points.map(e => e.skewRR);
   if (skewChart) skewChart.destroy();
@@ -980,8 +969,7 @@ function updateSkew(schwab) {
   if (!el) return;
   if (schwab && schwab.skewRR != null) {
     el.textContent = `25Δ RR: ${schwab.skewRR.toFixed(2)} vol pts`;
-    saveSkewPoint(schwab.skewRR);
-    renderSkewChart();
+    renderSkewChart(window._lastHist || [], window._lastSymbol || 'ES');
     el.style.color = schwab.skewRR > 0 ? "#f85149" : "#3fb950";
   } else {
     el.textContent = "25Δ RR: --";
