@@ -164,6 +164,8 @@ export default async function handler(req, res) {
             return {
               symbol: sym,
               last: q.lastPrice ?? q.mark ?? null,
+              open: q.openPrice ?? null,
+              prevClose: q.closePrice ?? q.previousClose ?? null,
               bid: q.bidPrice ?? null,
               ask: q.askPrice ?? null,
             };
@@ -212,6 +214,8 @@ export default async function handler(req, res) {
       gammaFlip,
       skewRR,
       esQuotes,
+      esOpen: esQuotes[0]?.open ?? null,
+      esPrevClose: esQuotes[0]?.prevClose ?? null,
       pcVol,
       pcOI,
       oiStrikes,
