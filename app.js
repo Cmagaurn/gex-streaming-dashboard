@@ -697,26 +697,26 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       const xScale = chartInstance.scales.x;
       if (!yScale || !xScale) return;
       const ctx = chartInstance.ctx;
-      // Draw OI profile on the right side (proxy volume)
-      if (schwab && schwab.oiStrikes && schwab.oiValues) {
-        const oiMap = {};
-        schwab.oiStrikes.forEach((os, i) => { oiMap[os] = schwab.oiValues[i]; });
-        let maxOI = 1;
-        Object.values(oiMap).forEach(v => { if (v > maxOI) maxOI = v; });
+      // Draw session volume profile on the right side
+      if (schwab && schwab.volStrikes && schwab.volValues) {
+        const volMap = {};
+        schwab.volStrikes.forEach((vs, i) => { volMap[vs] = schwab.volValues[i]; });
+        let maxVol = 1;
+        Object.values(volMap).forEach(v => { if (v > maxVol) maxVol = v; });
         const meta = chartInstance.getDatasetMeta(0);
         meta.data.forEach((bar, i) => {
           const strike = strikes[i].strike;
           let best = 0, bestDiff = Infinity;
-          Object.keys(oiMap).forEach(k => {
+          Object.keys(volMap).forEach(k => {
             const d = Math.abs(parseFloat(k) - strike);
-            if (d < bestDiff && d <= NEAR_SPOT_STEP * 2) { bestDiff = d; best = oiMap[k]; }
+            if (d < bestDiff && d <= NEAR_SPOT_STEP * 2) { bestDiff = d; best = volMap[k]; }
           });
           if (best <= 0 || !bar) return;
-          const frac = best / maxOI;
-          const barH = bar.height * 0.6;
-          const width = (xScale.right - xScale.left) * 0.35 * frac;
+          const frac = best / maxVol;
+          const barH = bar.height * 0.85;
+          const width = (xScale.right - xScale.left) * 0.4 * frac;
           ctx.save();
-          ctx.fillStyle = "rgba(139,148,158,0.45)";
+          ctx.fillStyle = "rgba(88,166,255,0.55)";
           ctx.fillRect(xScale.right - width, bar.y - barH / 2, width, barH);
           ctx.restore();
         });
