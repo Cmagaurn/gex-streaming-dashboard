@@ -934,11 +934,27 @@ function updateEsQuotes(schwab) {
 
 
 
+const SKEW_STORE_KEY = "gex_skew_rr";
+function loadSkewStore() {
+  try { return JSON.parse(localStorage.getItem(SKEW_STORE_KEY) || "[]"); } catch { return []; }
+}
+function saveSkewPoint(rr, symbol) {
+  if (rr == null) return;
+  const store = loadSkewStore();
+  store.push({ ts: Date.now(), symbol: symbol || "ES", skewRR: rr });
+  const cutoff = Date.now() - 5 * 24 * 60 * 60 * 1000;
+  const trimmed = store.filter(p => p.ts > cutoff);
+  localStorage.setItem(SKEW_STORE_KEY, JSON.stringify(trimmed.slice(-500)));
+}
+
 let skewChart = null;
 function renderSkewChart(hist, symbol) {
   const canvas = document.getElementById("skewChart");
   if (!canvas) return;
-  const points = (hist || []).filter(e => (e.symbol || "ES") === symbol && e.skewRR != null);
+  const serverPts = (hist || []).filter(e => (e.symbol || "ES") === symbol && e.skewRR != null)
+    .map(e => ({ ts: e.ts, skewRR: e.skewRR }));
+  const localPts = loadSkewStore().filter(p => (p.symbol || "ES") === symbol);
+  const points = [...serverPts, ...localPts].sort((a, b) => a.ts - b.ts);
   const labels = points.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
   const values = points.map(e => e.skewRR);
   if (skewChart) skewChart.destroy();
@@ -976,6 +992,7 @@ function updateSkew(schwab) {
   if (!el) return;
   if (schwab && schwab.skewRR != null) {
     el.textContent = `25Δ RR: ${schwab.skewRR.toFixed(2)} vol pts`;
+    saveSkewPoint(schwab.skewRR, window._lastSymbol || 'ES');
     renderSkewChart(window._lastHist || [], window._lastSymbol || 'ES');
     el.style.color = schwab.skewRR > 0 ? "#f85149" : "#3fb950";
   } else {
