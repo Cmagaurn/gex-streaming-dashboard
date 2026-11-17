@@ -43,6 +43,19 @@ async function fetchZeroGEX(symbol) {
   return parseZeroGEX(text);
 }
 
+
+async function fetchSkewRR(symbol) {
+  try {
+    const base = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://gex-streaming-dashboard.vercel.app";
+    const res = await fetch(`${base}/api/schwab-gex?symbol=${encodeURIComponent(symbol)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.skewRR ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function parseZeroGEX(text) {
   const getNum = (label) => {
     const idx = text.toLowerCase().indexOf(label.toLowerCase());
@@ -176,6 +189,7 @@ export default async function handler(req, res) {
           short: scores.short,
           straddle: scores.straddle,
           bias: scores.bias,
+          skewRR: await fetchSkewRR(symbol),
         };
         history.push(entry);
         newEntries.push(entry);
