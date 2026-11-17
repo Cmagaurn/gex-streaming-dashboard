@@ -176,6 +176,7 @@ export default async function handler(req, res) {
     // Put/call ratios and OI by strike (front expirations)
     let putVol = 0, callVol = 0, putOI = 0, callOI = 0;
     const oiByStrike = {};
+    const volByStrike = {};
     const addOI = (expMap, isPut) => {
       for (const strikes of Object.values(expMap || {})) {
         for (const [strikeStr, contracts] of Object.entries(strikes)) {
@@ -187,6 +188,7 @@ export default async function handler(req, res) {
             if (isPut) { putVol += vol; putOI += oi; }
             else { callVol += vol; callOI += oi; }
             oiByStrike[strike] = (oiByStrike[strike] || 0) + oi;
+            volByStrike[strike] = (volByStrike[strike] || 0) + vol;
           }
         }
       }
@@ -196,6 +198,8 @@ export default async function handler(req, res) {
     const pcVol = callVol ? (putVol / callVol) : null;
     const pcOI = callOI ? (putOI / callOI) : null;
     const oiStrikes = Object.keys(oiByStrike).map(Number).sort((a,b)=>a-b);
+    const volStrikes = Object.keys(volByStrike).map(Number).sort((a,b)=>a-b);
+    const volValues = volStrikes.map(s => volByStrike[s]);
     const oiValues = oiStrikes.map(s => oiByStrike[s]);
 
     return res.status(200).json({
@@ -212,6 +216,8 @@ export default async function handler(req, res) {
       pcOI,
       oiStrikes,
       oiValues,
+      volStrikes,
+      volValues,
       source: "schwab",
     });
   } catch (err) {
