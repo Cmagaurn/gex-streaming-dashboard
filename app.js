@@ -591,7 +591,6 @@ async function fetchAll() {
     renderSkewChart(hist, symbol);
     renderMetricsChart(hist, symbol);
     renderMultiChart(hist);
-    renderSkewChart(hist);
     updateTickerGexBoxes();
     postHistorySnapshot();
     setStatus(`Live \u00b7 ${symbol} ZeroGEX + AlgoX`);
@@ -992,8 +991,8 @@ function updateSkew(schwab) {
   if (!el) return;
   if (schwab && schwab.skewRR != null) {
     el.textContent = `25Δ RR: ${schwab.skewRR.toFixed(2)} vol pts`;
-    saveSkewPoint(schwab.skewRR, window._lastSymbol || 'ES');
-    renderSkewChart(window._lastHist || [], window._lastSymbol || 'ES');
+    saveSkewPoint(schwab.skewRR, symbol);
+    renderSkewChart(window._lastHist || [], symbol);
     el.style.color = schwab.skewRR > 0 ? "#f85149" : "#3fb950";
   } else {
     el.textContent = "25Δ RR: --";
