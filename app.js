@@ -664,6 +664,13 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       schwabMaxAbs = Math.max(schwabMaxAbs, Math.abs(v));
       return v;
     });
+    // Normalize Schwab magnitudes to match ZeroGEX scale so both are comparable
+    if (schwabMaxAbs > 0 && values.length) {
+      const algoxMax = Math.max(...values.map(v => Math.abs(v || 0)), 1);
+      const factor = algoxMax / schwabMaxAbs;
+      schwabOverlay = schwabOverlay.map(v => v * factor);
+      schwabMaxAbs = algoxMax;
+    }
   }
   const algoxMaxAbs = Math.max(...values.map(v => Math.abs(v || 0)), 0);
   const xMax = Math.max(algoxMaxAbs, schwabMaxAbs) * 1.15 || 100;
