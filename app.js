@@ -749,6 +749,23 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
           borderWidth: 0,
           categoryPercentage: 0.8,
           barPercentage: 0.45,
+          xAxisID: "x",
+        },
+        {
+          label: "OI",
+          data: (schwab && schwab.oiValues) ? strikes.map(s => {
+            let best = 0, bestDiff = Infinity;
+            (schwab.oiStrikes || []).forEach((os, i) => {
+              const d = Math.abs(os - s.strike);
+              if (d < bestDiff && d <= NEAR_SPOT_STEP) { bestDiff = d; best = schwab.oiValues[i]; }
+            });
+            return best;
+          }) : [],
+          backgroundColor: "rgba(139,148,158,0.4)",
+          borderWidth: 0,
+          categoryPercentage: 0.5,
+          barPercentage: 0.25,
+          xAxisID: "x1",
         }
       ]
     },
@@ -765,8 +782,10 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
             color: "#ffffff",
             font: { size: 12 },
             generateLabels: () => [
-              { text: "ZeroGEX / AlgoX ($M)", fillStyle: "#3fb950", strokeStyle: "#3fb950", lineWidth: 0, fontColor: "#ffffff" },
-              { text: "Schwab real-time overlay", fillStyle: "rgba(0,255,255,0.7)", strokeStyle: "#00ffff", lineWidth: 1, fontColor: "#00ffff" }
+              { text: "ZeroGEX +", fillStyle: "#3fb950", strokeStyle: "#3fb950", lineWidth: 0, fontColor: "#ffffff" },
+              { text: "ZeroGEX −", fillStyle: "#f85149", strokeStyle: "#f85149", lineWidth: 0, fontColor: "#ffffff" },
+              { text: "Schwab +", fillStyle: "rgba(0,255,255,0.85)", strokeStyle: "#00ffff", lineWidth: 0, fontColor: "#00ffff" },
+              { text: "Schwab −", fillStyle: "rgba(255,100,255,0.85)", strokeStyle: "#ff64ff", lineWidth: 0, fontColor: "#ff64ff" }
             ]
           }
         },
@@ -783,6 +802,12 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
           grid: { color: "#30363d" },
           suggestedMin: -xMax,
           suggestedMax: xMax
+        },
+        x1: {
+          title: { display: true, text: "Open Interest", color: "#8b949e" },
+          ticks: { color: "#8b949e" },
+          grid: { drawOnChartArea: false },
+          position: "top",
         },
         y: {
           ticks: { color: "#8b949e" },
