@@ -99,11 +99,70 @@ export default async function handler(req, res) {
       cum += gex[i];
       if (prev * cum < 0) { gammaFlip = strikes[i]; break; }
     }
-    if (gammaFlip == null && strikes.length) gammaFlip = strikes[Math.floor(strikes.length / 2)];
 
-    res.setHeader("Cache-Control", "s-maxage=30, stale-while-revalidate");
+    // Approximate 25-delta risk reversal (front expiration)
+    let skewRR = null;
+    try {
+      const expDates = Object.keys(chain.callExpDateMap || {}).sort();
+      if (expDates.length > 0) {
+        const front = expDates[0];
+        const calls = chain.callExpDateMap[front] || {};
+        const puts = chain.putExpDateMap[front] || {};
+        let bestCall = null, bestCallDiff = Infinity;
+        let bestPut = null, bestPutDiff = Infinity;
+        for (const [k, arr] of Object.entries(calls)) {
+          const c = arr[0];
+          if (!c || c.delta == null || c.volatility == null) continue;
+          const d = Math.abs(c.delta - 0.25);
+          if (d < bestCallDiff) { bestCallDiff = d; bestCall = c; }
+        }
+        for (const [k, arr] of Object.entries(puts)) {
+          const c = arr[0];
+          if (!c || c.delta == null || c.volatility == null) continue;
+          const d = Math.abs(Math.abs(c.delta) - 0.25);
+          if (d < bestPutDiff) { bestPutDiff = d; bestPut = c; }
+        }
+        if (bestCall && bestPut) {
+          skewRR = (bestPut.volatility - bestCall.volatility) * 100; // in vol points
+        }
+      }
+    } catch (e) {}
+
+    // ES futures quotes (front + next few)
+    let esQuotes = [];
+    if (symbol === "ES" || symbol === "SPX") {
+      const months = ["H", "M", "U", "Z"];
+      const now = new Date();
+      let year = now.getFullYear() % 100;
+      let mIdx = Math.floor(now.getMonth() / 3);
+      const symbols = [];
+      for (let i = 0; i < 4; i++) {
+        symbols.push(`/ES${months[mIdx]}${year}`);
+        mIdx++;
+        if (mIdx >= 4) { mIdx = 0; year++; }
+      }
+      try {
+        const qUrl = new URL("https://api.schwabapi.com/marketdata/v1/quotes");
+        qUrl.searchParams.set("symbols", symbols.join(","));
+        const qRes = await fetch(qUrl.toString(), {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (qRes.ok) {
+          const qData = await qRes.json();
+          esQuotes = symbols.map(sym => {
+            const q = qData[sym]?.quote || {};
+            return {
+              symbol: sym,
+              last: q.lastPrice ?? q.mark ?? null,
+              bid: q.bidPrice ?? null,
+              ask: q.askPrice ?? null,
+            };
+          }).filter(q => q.last != null);
+        }
+      } catch (e) {}
+    }
+
     return res.status(200).json({
-      symbol,
       spot,
       strikes,
       gex,
@@ -111,11 +170,11 @@ export default async function handler(req, res) {
       callWall,
       putWall,
       gammaFlip,
-      updated: new Date().toISOString(),
+      skewRR,
+      esQuotes,
       source: "schwab",
     });
   } catch (err) {
-    console.error(err);
     return res.status(500).json({ error: err.message });
   }
 }
