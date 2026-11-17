@@ -519,19 +519,38 @@ async function updateTickerGexBoxes() {
   });
 }
 
+
+const SCHWAB_CACHE_KEY = "gex_schwab_last";
+function loadSchwabCache() {
+  try { return JSON.parse(localStorage.getItem(SCHWAB_CACHE_KEY) || "null"); } catch { return null; }
+}
+function saveSchwabCache(s) {
+  if (!s || !s.strikes || !s.strikes.length) return;
+  try { localStorage.setItem(SCHWAB_CACHE_KEY, JSON.stringify({
+    spot: s.spot, gammaFlip: s.gammaFlip, callWall: s.callWall, putWall: s.putWall,
+    netGex: s.netGex, strikes: s.strikes, gex: s.gex, ts: Date.now()
+  })); } catch {}
+}
+
 function updateSchwabBoxes(schwab) {
   const set = (el, val, color) => {
     if (!el) return;
     el.textContent = val != null ? (typeof val === "number" ? val.toLocaleString() : val) : "--";
     el.style.color = color || "#ffffff";
   };
-  if (!schwab) {
-    set(els.schwabSpot, null);
-    set(els.schwabFlip, null);
-    set(els.schwabCall, null);
-    set(els.schwabPut, null);
-    set(els.schwabNet, null);
-    return;
+  if (!schwab || !schwab.strikes || !schwab.strikes.length) {
+    const cached = loadSchwabCache();
+    if (cached) schwab = cached;
+    else {
+      set(els.schwabSpot, null);
+      set(els.schwabFlip, null);
+      set(els.schwabCall, null);
+      set(els.schwabPut, null);
+      set(els.schwabNet, null);
+      return;
+    }
+  } else {
+    saveSchwabCache(schwab);
   }
   set(els.schwabSpot, schwab.spot);
   set(els.schwabFlip, schwab.gammaFlip != null ? schwab.gammaFlip : '--');
@@ -705,6 +724,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
 
   let schwabOverlay = null;
   let schwabMaxAbs = 0;
+  if ((!schwab || !schwab.strikes || !schwab.strikes.length) && typeof loadSchwabCache === 'function') schwab = loadSchwabCache() || schwab;
   if (schwab && schwab.strikes && schwab.gex) {
     const schwabMap = {};
     schwab.strikes.forEach((s, i) => {
@@ -719,7 +739,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       Object.keys(schwabMap).forEach(k => {
         const sk = parseFloat(k);
         const d = Math.abs(sk - cs);
-        if (d < bestDiff && d <= NEAR_SPOT_STEP * 4) {
+        if (d < bestDiff && d <= NEAR_SPOT_STEP) {
           bestDiff = d;
           best = schwabMap[k];
         }
@@ -834,7 +854,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
           label: "Schwab ($M)",
           data: schwabOverlay || [],
           backgroundColor: schwabColors,
-          minBarLength: 3,
+          minBarLength: 2,
           borderWidth: 0,
           categoryPercentage: 0.8,
           barPercentage: 0.45,
