@@ -644,7 +644,8 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
   if (schwab && schwab.strikes && schwab.gex) {
     const schwabMap = {};
     schwab.strikes.forEach((s, i) => {
-      const scaled = scaleStrike(s, symbol);
+      // Do not apply ES/SPX 10x scale to Schwab $SPX strikes; chart is already in cash levels
+      const scaled = (symbol === "ES" || symbol === "SPX") ? s : scaleStrike(s, symbol);
       if (scaled != null) schwabMap[scaled] = schwab.gex[i];
     });
     // Build Schwab series aligned to the same strike keys used by the chart
