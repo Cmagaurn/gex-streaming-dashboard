@@ -151,6 +151,17 @@ async function fetchAlgoX(symbol) {
   return res.json();
 }
 
+
+async function fetchVixTerm() {
+  try {
+    const [vix, vix3m] = await Promise.all([
+      fetchYahoo("^VIX"),
+      fetchYahoo("^VIX3M")
+    ]);
+    return { vix, vix3m, ratio: (vix && vix3m) ? vix / vix3m : null };
+  } catch { return null; }
+}
+
 async function fetchSchwabGex(symbol) {
   try {
     const res = await fetch(`/api/schwab-gex?symbol=${encodeURIComponent(symbol)}`);
@@ -505,6 +516,7 @@ async function fetchAll() {
     if (zg) renderLevels(zg, symbol);
     updateSchwabBoxes(schwab);
     updateEsQuotes(schwab);
+    updatePutCall(schwab);
     updateSkew(schwab);
     updateMarketPrices(price?.status === "fulfilled" ? price.value : null,
                        tnx?.status === "fulfilled" ? tnx.value : null,
@@ -552,7 +564,7 @@ function updateMarketPrices(price, tnx, oil, vix, symbol, spot) {
   const im = computeImpliedMove(refSpot, vix);
   if (els.impliedMove) {
     if (im) {
-      const todayMove = (spot != null && openPrice != null) ? (spot - openPrice) : null;
+      const todayMove = null; // open not available from current sources
       els.impliedMove.innerHTML = `Implied Move: \u00b1${im.points.toFixed(1)} pts (${im.pct.toFixed(2)}%)<br><span style="color:#8b949e;font-size:0.85rem">Today: ${todayMove != null ? (todayMove >= 0 ? "+" : "") + todayMove.toFixed(1) : "--"} pts</span>`;
     } else {
       els.impliedMove.textContent = "Implied Move: --";
@@ -776,6 +788,19 @@ function startPolling() {
   pollTimer = setInterval(fetchAll, POLL_INTERVAL);
 }
 
+
+
+function updatePutCall(schwab) {
+  const el = document.getElementById("pcBox");
+  if (!el) return;
+  if (!schwab || (schwab.pcVol == null && schwab.pcOI == null)) {
+    el.textContent = "--";
+    return;
+  }
+  const vol = schwab.pcVol != null ? schwab.pcVol.toFixed(2) : "--";
+  const oi = schwab.pcOI != null ? schwab.pcOI.toFixed(2) : "--";
+  el.innerHTML = `${vol} / ${oi}`;
+}
 
 function updateEsQuotes(schwab) {
   const box = document.getElementById("schwabSpot");

@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=28">
+  <link rel="stylesheet" href="styles.css?v=29">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 900px; min-height: 600px; }
@@ -85,6 +85,7 @@
       <div class="box"><div class="src">Schwab</div><div class="label">Call Wall</div><div class="val" id="schwabCall">--</div></div>
       <div class="box"><div class="src">Schwab</div><div class="label">Put Wall</div><div class="val" id="schwabPut">--</div></div>
       <div class="box"><div class="src">Schwab</div><div class="label">Net GEX</div><div class="val" id="schwabNet">--</div></div>
+      <div class="box"><div class="src">Schwab</div><div class="label">P/C Vol / OI</div><div class="val" id="pcBox">--</div></div>
     </section>
 
     <section class="ticker-gex" id="tickerGexBoxes">
@@ -98,6 +99,7 @@
 
     <section class="chart-section">
       <canvas id="gexChart"></canvas>
+      <p style="font-size:0.8rem;color:#8b949e;margin:0.4rem 0 0">OI-by-strike proxy (Schwab open interest) can be overlaid as a volume-profile style guide; higher OI clusters often align with stronger gamma walls.</p>
     </section>
 
     <section class="chart-section" style="margin-top: 1.5rem; height: 320px;">
@@ -125,6 +127,10 @@
 
     <section class="chart-section" style="margin-top: 1.5rem; height: 280px;">
       <canvas id="skewChart"></canvas>
+      <details style="margin-top:0.5rem;color:#8b949e;font-size:0.85rem">
+        <summary>What the 25Δ risk reversal shows</summary>
+        <p>A drop means put skew is cheapening relative to calls (less demand for downside protection). A rise means puts are getting more expensive vs calls. Values are in volatility points for the front expiration.</p>
+      </details>
     </section>
 
     <section class="chart-section" style="margin-top: 1.5rem; height: 320px;">
@@ -148,6 +154,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=28"></script>
+  <script src="app.js?v=29"></script>
 </body>
 </html>
