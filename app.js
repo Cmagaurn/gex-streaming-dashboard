@@ -572,7 +572,7 @@ async function fetchAll() {
     updateSchwabBoxes(schwab);
     updateEsQuotes(schwab);
     updatePutCall(schwab);
-    updateSkew(schwab);
+    updateSkew(schwab, symbol);
     updateMarketPrices(price?.status === "fulfilled" ? price.value : null,
       tnx?.status === "fulfilled" ? tnx.value : null,
       oil?.status === "fulfilled" ? oil.value : null,
@@ -986,7 +986,7 @@ function renderSkewChart(hist, symbol) {
   });
 }
 
-function updateSkew(schwab) {
+function updateSkew(schwab, symbol) {
   const el = document.getElementById("skewRR");
   if (!el) return;
   if (schwab && schwab.skewRR != null) {
