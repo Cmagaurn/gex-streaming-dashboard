@@ -6,7 +6,9 @@ export default async function handler(req, res) {
   const symbol = req.query.symbol;
   if (!symbol) return res.status(400).json({ error: "symbol required" });
 
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1m&range=1d`;
+  const range = req.query.range || "1d";
+  const interval = req.query.interval || "1m";
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}`;
   try {
     const yRes = await fetch(url, {
       headers: {
@@ -16,8 +18,12 @@ export default async function handler(req, res) {
     });
     if (!yRes.ok) return res.status(yRes.status).json({ error: `Yahoo ${yRes.status}` });
     const data = await yRes.json();
-    const price = data.chart?.result?.[0]?.meta?.regularMarketPrice ?? null;
-    return res.status(200).json({ symbol, price });
+    const result = data.chart?.result?.[0];
+    const price = result?.meta?.regularMarketPrice ?? null;
+    const timestamps = result?.timestamp || [];
+    const closes = result?.indicators?.quote?.[0]?.close || [];
+    const series = timestamps.map((t, i) => ({ t: t * 1000, c: closes[i] })).filter(p => p.c != null);
+    return res.status(200).json({ symbol, price, series });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
