@@ -478,7 +478,7 @@ function updateSchwabBoxes(schwab) {
 async function fetchAll() {
   const symbol = (els.tickerSelect && els.tickerSelect.value) || "ES";
   currentSymbol = symbol;
-  const showSchwab = els.schwabOverlay && els.schwabOverlay.checked;
+  const showSchwab = true; // always show side-by-side
   if (els.schwabNote) els.schwabNote.textContent = showSchwab ? "(fetching Schwab...)" : "";
   setStatus(`Loading ${symbol} levels + profile + markets\u2026`);
   try {
@@ -504,6 +504,8 @@ async function fetchAll() {
 
     if (zg) renderLevels(zg, symbol);
     updateSchwabBoxes(schwab);
+    updateEsQuotes(schwab);
+    updateSkew(schwab);
     updateMarketPrices(price?.status === "fulfilled" ? price.value : null,
                        tnx?.status === "fulfilled" ? tnx.value : null,
                        oil?.status === "fulfilled" ? oil.value : null,
@@ -517,6 +519,7 @@ async function fetchAll() {
     renderHistoryChart(hist, symbol);
     renderMetricsChart(hist, symbol);
     renderMultiChart(hist);
+    renderSkewChart(hist);
     updateTickerGexBoxes();
     postHistorySnapshot();
     setStatus(`Live \u00b7 ${symbol} ZeroGEX + AlgoX`);
@@ -714,18 +717,29 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
   };
 
   try {
+  const schwabColors = (schwabOverlay || []).map(v => v == null ? "transparent" : (v >= 0 ? "rgba(0,255,255,0.85)" : "rgba(255,100,255,0.85)"));
   chart = new Chart(els.canvas, {
     type: "bar",
     data: {
       labels,
-      datasets: [{
-        label: "AlgoX / ZeroGEX ($M)",
-        data: values,
-        backgroundColor: colors,
-        borderWidth: 0,
-        categoryPercentage: 0.9,
-        barPercentage: 0.85,
-      }]
+      datasets: [
+        {
+          label: "ZeroGEX / AlgoX ($M)",
+          data: values,
+          backgroundColor: colors,
+          borderWidth: 0,
+          categoryPercentage: 0.8,
+          barPercentage: 0.45,
+        },
+        {
+          label: "Schwab ($M)",
+          data: schwabOverlay || [],
+          backgroundColor: schwabColors,
+          borderWidth: 0,
+          categoryPercentage: 0.8,
+          barPercentage: 0.45,
+        }
+      ]
     },
     plugins: [levelsPlugin],
     options: {
@@ -740,7 +754,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
             color: "#ffffff",
             font: { size: 12 },
             generateLabels: () => [
-              { text: "AlgoX / ZeroGEX ($M)", fillStyle: "#3fb950", strokeStyle: "#3fb950", lineWidth: 0, fontColor: "#ffffff" },
+              { text: "ZeroGEX / AlgoX ($M)", fillStyle: "#3fb950", strokeStyle: "#3fb950", lineWidth: 0, fontColor: "#ffffff" },
               { text: "Schwab real-time overlay", fillStyle: "rgba(0,255,255,0.7)", strokeStyle: "#00ffff", lineWidth: 1, fontColor: "#00ffff" }
             ]
           }
@@ -778,6 +792,68 @@ if (els.tickerSelect) els.tickerSelect.addEventListener("change", fetchAll);
 function startPolling() {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(fetchAll, POLL_INTERVAL);
+}
+
+
+function updateEsQuotes(schwab) {
+  const el = document.getElementById("esQuotes");
+  if (!el) return;
+  if (!schwab || !schwab.esQuotes || !schwab.esQuotes.length) {
+    el.textContent = "";
+    return;
+  }
+  el.innerHTML = schwab.esQuotes.map(q => 
+    `<span style="margin-right:12px">${q.symbol}: ${q.last != null ? q.last.toLocaleString() : "--"}</span>`
+  ).join("");
+}
+
+
+let skewChart = null;
+function renderSkewChart(hist) {
+  const canvas = document.getElementById("skewChart");
+  if (!canvas) return;
+  const points = hist.filter(e => e.skewRR != null);
+  const labels = points.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
+  const values = points.map(e => e.skewRR);
+  if (skewChart) skewChart.destroy();
+  skewChart = new Chart(canvas, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "25Δ Risk Reversal (vol pts)",
+        data: values,
+        borderColor: "#d29922",
+        backgroundColor: "rgba(210,153,34,0.1)",
+        fill: true,
+        tension: 0.2,
+        pointRadius: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { color: "#e6edf3" } },
+        title: { display: true, text: "25-Delta Risk Reversal (front month)", color: "#e6edf3" }
+      },
+      scales: {
+        x: { ticks: { color: "#8b949e", maxTicksLimit: 12 }, grid: { color: "#30363d" } },
+        y: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } }
+      }
+    }
+  });
+}
+
+function updateSkew(schwab) {
+  const el = document.getElementById("skewRR");
+  if (!el) return;
+  if (schwab && schwab.skewRR != null) {
+    el.textContent = `25Δ RR: ${schwab.skewRR.toFixed(2)} vol pts`;
+    el.style.color = schwab.skewRR > 0 ? "#f85149" : "#3fb950";
+  } else {
+    el.textContent = "25Δ RR: --";
+  }
 }
 
 fetchAll();

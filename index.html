@@ -7,7 +7,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>GEX Streaming Dashboard | Hybrid</title>
-  <link rel="stylesheet" href="styles.css?v=26">
+  <link rel="stylesheet" href="styles.css?v=27">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     .chart-section { height: 900px; min-height: 600px; }
@@ -64,6 +64,8 @@
   <main>
     <section class="levels-card">
       <div class="level" id="spotLevel">Spot: --</div>
+      <div class="level" id="esQuotes" style="font-size:0.85rem;color:#8b949e"></div>
+      <div class="level" id="skewRR" style="font-size:0.85rem">25Δ RR: --</div>
       <div class="level" id="flipLevel">Gamma Flip: --</div>
       <div class="level" id="callWall">Call Wall: --</div>
       <div class="level" id="putWall">Put Wall: --</div>
@@ -121,6 +123,10 @@
       </details>
     </section>
 
+    <section class="chart-section" style="margin-top: 1.5rem; height: 280px;">
+      <canvas id="skewChart"></canvas>
+    </section>
+
     <section class="chart-section" style="margin-top: 1.5rem; height: 320px;">
       <canvas id="metricsChart"></canvas>
     </section>
@@ -142,6 +148,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=26"></script>
+  <script src="app.js?v=27"></script>
 </body>
 </html>
