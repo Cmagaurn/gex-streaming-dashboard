@@ -338,16 +338,24 @@ function renderMultiChart(hist) {
   const allTs = [...new Set(hist.map(e => e.ts))].sort((a, b) => a - b);
   const labels = allTs.map(ts => new Date(ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
 
+  const selected = (typeof currentSymbol !== "undefined" ? currentSymbol : "ES");
   const datasets = ALL_SYMBOLS.map(sym => {
     const points = bySym[sym];
     const map = Object.fromEntries(points.map(e => [e.ts, e.netGex]));
+    const raw = allTs.map(ts => map[ts] ?? null);
+    const absVals = raw.filter(v => v != null).map(Math.abs);
+    const maxAbs = absVals.length ? Math.max(...absVals) : 1;
+    // Normalize to -100..100 of own range so trends remain visible regardless of absolute scale
+    const norm = raw.map(v => v == null ? null : (v / maxAbs) * 100);
     return {
       label: sym,
-      data: allTs.map(ts => map[ts] ?? null),
+      data: norm,
+      rawData: raw,               // keep original for tooltip
       borderColor: COLORS[sym],
       backgroundColor: "transparent",
       tension: 0.2,
       pointRadius: 2,
+      borderWidth: sym === selected ? 3 : 1.5,
       spanGaps: true,
     };
   });
@@ -365,15 +373,21 @@ function renderMultiChart(hist) {
         title: { display: true, text: "5-Day Net GEX \u2014 All Tickers", color: "#e6edf3" },
         tooltip: {
           callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ${formatGex(ctx.parsed.y)}`
+            label: (ctx) => {
+              const raw = ctx.dataset.rawData ? ctx.dataset.rawData[ctx.dataIndex] : ctx.parsed.y;
+              return `${ctx.dataset.label}: ${formatGex(raw)} (norm ${ctx.parsed.y.toFixed(0)})`;
+            }
           }
         }
       },
       scales: {
         x: { ticks: { color: "#8b949e", maxTicksLimit: 14 }, grid: { color: "#30363d" } },
         y: {
-          ticks: { color: "#8b949e", callback: (v) => formatGex(v) },
-          grid: { color: "#30363d" }
+          title: { display: true, text: "Normalized (% of own range)", color: "#8b949e" },
+          ticks: { color: "#8b949e", callback: (v) => v.toFixed(0) },
+          grid: { color: "#30363d" },
+          suggestedMin: -110,
+          suggestedMax: 110,
         },
       },
     },
