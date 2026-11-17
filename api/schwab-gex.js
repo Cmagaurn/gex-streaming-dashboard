@@ -38,7 +38,6 @@ export default async function handler(req, res) {
     chainUrl.searchParams.set("contractType", "ALL");
     chainUrl.searchParams.set("strikeCount", "50");
     chainUrl.searchParams.set("includeUnderlyingQuote", "true");
-    chainUrl.searchParams.set("fromDate", today);
     chainUrl.searchParams.set("toDate", toDate);
 
     const chainRes = await fetch(chainUrl.toString(), {
