@@ -574,10 +574,12 @@ async function fetchAll() {
     updatePutCall(schwab);
     updateSkew(schwab);
     updateMarketPrices(price?.status === "fulfilled" ? price.value : null,
-                       tnx?.status === "fulfilled" ? tnx.value : null,
-                       oil?.status === "fulfilled" ? oil.value : null,
-                       vix?.status === "fulfilled" ? vix.value : null,
-                       symbol, zg?.spot);
+      tnx?.status === "fulfilled" ? tnx.value : null,
+      oil?.status === "fulfilled" ? oil.value : null,
+      vix?.status === "fulfilled" ? vix.value : null,
+      symbol,
+      zg?.spot,
+      schwab);
     const hist = await loadHistory();
     const symbolHist = filterHist(hist, symbol);
     if (zg) renderIndicator(zg, symbolHist);
@@ -606,7 +608,7 @@ function arrowFor(current, previous) {
   return "";
 }
 
-function updateMarketPrices(price, tnx, oil, vix, symbol, spot) {
+function updateMarketPrices(price, tnx, oil, vix, symbol, spot, schwab) {
   if (els.esPrice) els.esPrice.textContent = `${symbol}: ${price != null ? price.toLocaleString() : "--"}`;
   const tnxArrow = arrowFor(tnx, prevTnx);
   if (els.tnxPrice) els.tnxPrice.innerHTML = `10Y: ${tnx != null ? tnx.toFixed(3) + "%" : "--"}${tnxArrow}`;
@@ -623,7 +625,7 @@ function updateMarketPrices(price, tnx, oil, vix, symbol, spot) {
   if (els.impliedMove) {
     if (im) {
       let todayMove = null;
-      if (schwab && schwab.esQuotes && schwab.esQuotes[0]) {
+      if (typeof schwab !== 'undefined' && schwab && schwab.esQuotes && schwab.esQuotes[0]) {
         const q = schwab.esQuotes[0];
         const ref = q.open ?? q.prevClose;
         if (ref != null && q.last != null) todayMove = q.last - ref;
