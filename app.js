@@ -719,7 +719,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       Object.keys(schwabMap).forEach(k => {
         const sk = parseFloat(k);
         const d = Math.abs(sk - cs);
-        if (d < bestDiff && d <= NEAR_SPOT_STEP) {
+        if (d < bestDiff && d <= NEAR_SPOT_STEP * 4) {
           bestDiff = d;
           best = schwabMap[k];
         }
@@ -834,7 +834,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
           label: "Schwab ($M)",
           data: schwabOverlay || [],
           backgroundColor: schwabColors,
-          minBarLength: 2,
+          minBarLength: 3,
           borderWidth: 0,
           categoryPercentage: 0.8,
           barPercentage: 0.45,
