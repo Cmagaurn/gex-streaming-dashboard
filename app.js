@@ -622,7 +622,12 @@ function updateMarketPrices(price, tnx, oil, vix, symbol, spot) {
   const im = computeImpliedMove(refSpot, vix);
   if (els.impliedMove) {
     if (im) {
-      const todayMove = null; // open not available from current sources
+      let todayMove = null;
+      if (schwab && schwab.esQuotes && schwab.esQuotes[0]) {
+        const q = schwab.esQuotes[0];
+        const ref = q.open ?? q.prevClose;
+        if (ref != null && q.last != null) todayMove = q.last - ref;
+      }
       els.impliedMove.innerHTML = `Implied Move: \u00b1${im.points.toFixed(1)} pts (${im.pct.toFixed(2)}%)<br><span style="color:#8b949e;font-size:0.85rem">Today: ${todayMove != null ? (todayMove >= 0 ? "+" : "") + todayMove.toFixed(1) : "--"} pts</span>`;
     } else {
       els.impliedMove.textContent = "Implied Move: --";
