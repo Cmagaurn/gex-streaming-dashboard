@@ -99,6 +99,16 @@ export default async function handler(req, res) {
       cum += gex[i];
       if (prev * cum < 0) { gammaFlip = strikes[i]; break; }
     }
+    if (gammaFlip == null && strikes.length > 1) {
+      // fallback: strike nearest zero cumulative
+      let best = strikes[0], bestAbs = Infinity;
+      cum = 0;
+      for (let i = 0; i < strikes.length; i++) {
+        cum += gex[i];
+        if (Math.abs(cum) < bestAbs) { bestAbs = Math.abs(cum); best = strikes[i]; }
+      }
+      gammaFlip = best;
+    }
 
     // Approximate 25-delta risk reversal (front expiration)
     let skewRR = null;
