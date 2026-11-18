@@ -99,6 +99,17 @@ function fmtAge(ts) {
   if (age < 3600) return Math.round(age / 60) + "m ago";
   return Math.round(age / 3600) + "h ago";
 }
+
+function renderSourceBadges(sources) {
+  const el = document.getElementById("sourceBadges");
+  if (!el) return;
+  el.innerHTML = sources.map(s => {
+    const age = s.ts ? fmtAge(s.ts) : "unknown";
+    const color = s.priority === 1 ? "#3fb950" : s.priority === 2 ? "#d29922" : "#8b949e";
+    return `<span style="background:${color}22;border:1px solid ${color};color:${color};padding:0.15rem 0.5rem;border-radius:4px">${s.name} · ${age}</span>`;
+  }).join("");
+}
+
 function updateDataAge(sources) {
   const el = document.getElementById("dataAge");
   if (!el) return;
@@ -173,7 +184,9 @@ async function fetchVixTerm() {
     const [vix, vix3m] = await Promise.all([
       fetchYahoo("^VIX"),
       fetchYahoo("^VIX3M")
-    ]);
+    ];
+  updateDataAge(_sources);
+  renderSourceBadges(_sources);
     return { vix, vix3m, ratio: (vix && vix3m) ? vix / vix3m : null };
   } catch { return null; }
 }
@@ -624,13 +637,15 @@ async function fetchAll() {
     updateEsQuotes(schwab);
     updatePutCall(schwab);
     updateSkew(schwab, symbol);
-    updateDataAge([
+    const _sources = [
       { name: "ZeroGEX", ts: zg?.ts || Date.now(), extra: "delayed ~15m" },
       { name: "AlgoX", ts: Date.now() },
       { name: "Schwab chain", ts: schwab?.dataTs, extra: schwab ? (schwab.strikeCount + " strikes" + (schwab.hasGamma ? "" : ", no gamma")) : "unavailable" },
       { name: "Schwab futures", ts: schwab?.dataTs },
       { name: "Yahoo", ts: Date.now() },
-    ]);
+    ];
+  updateDataAge(_sources);
+  renderSourceBadges(_sources);
     updateMarketPrices(price?.status === "fulfilled" ? price.value : null,
       tnx?.status === "fulfilled" ? tnx.value : null,
       oil?.status === "fulfilled" ? oil.value : null,
@@ -862,7 +877,9 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
         ctx.save();
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
+        ctx.setLineDash([4, 4];
+  updateDataAge(_sources);
+  renderSourceBadges(_sources);
         ctx.beginPath();
         ctx.moveTo(xScale.left, y);
         ctx.lineTo(xScale.right, y);

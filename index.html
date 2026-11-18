@@ -78,7 +78,8 @@
       <div class="level" id="tnxPrice">10Y: --</div>
       <div class="level" id="oilPrice">BZ Oil: --</div>
       <div class="meta" id="meta">Updated: -- · Age: --</div>
-      <div id="dataAge" style="font-size:0.75rem;color:#8b949e;margin-top:0.3rem;line-height:1.4"></div>
+      <div id="sourceBadges" style="display:flex;gap:0.6rem;flex-wrap:wrap;margin:0.4rem 0;font-size:0.75rem"></div>
+      <div id="dataAge" style="font-size:0.75rem;color:#8b949e;margin-top:0.3rem" style="font-size:0.75rem;color:#8b949e;margin-top:0.3rem;line-height:1.4"></div>
       <div style="font-size:0.75rem;color:#d29922;margin-top:0.2rem">Note: Schwab option-chain data (gamma, walls, OI) typically stops updating after the cash close.</div>
     </section>
 
@@ -132,7 +133,7 @@
       </div>
     </section>
 
-    <section class="chart-section" style="margin-top: 1.5rem; margin-bottom: 1.5rem; height: 380px; padding-bottom: 1.5rem;">
+    <section class="chart-section" style="margin-top: 1.5rem; margin-bottom: 2rem; height: 400px; padding-bottom: 2.5rem;">
       <div id="skewSummary" style="display:flex;gap:1.5rem;align-items:baseline;margin-bottom:0.6rem;flex-wrap:wrap">
         <div>
           <div style="font-size:0.75rem;color:#8b949e">25Δ RR</div>
@@ -149,7 +150,7 @@
       </div>
       <canvas id="skewChart"></canvas>
     </section>
-    <details style="margin: 2.5rem 0 2.5rem 0; color:#8b949e; font-size:0.85rem; padding: 0.5rem 0; clear: both;">
+    <details style="margin: 3.5rem 0 2.5rem 0; color:#8b949e; font-size:0.85rem; padding: 0.5rem 0; clear: both;">
       <summary style="cursor:pointer; user-select:none;">What the 25Δ risk reversal shows</summary>
       <p style="margin: 0.4rem 0 0 0;">
         <strong>25Δ RR</strong> — Put IV minus call IV at approximately 25 delta for the front expiration (volatility points). Positive means puts are richer than calls (normal for equity indexes).<br>
@@ -178,6 +179,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=36"></script>
+  <script src="app.js?v=37"></script>
 </body>
 </html>
