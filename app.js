@@ -405,20 +405,24 @@ function renderMultiChart(hist) {
     const points = bySym[sym];
     const map = Object.fromEntries(points.map(e => [e.ts, e.netGex]));
     const raw = allTs.map(ts => map[ts] ?? null);
-    const absVals = raw.filter(v => v != null).map(Math.abs);
-    const maxAbs = absVals.length ? Math.max(...absVals) : 1;
-    // Normalize to -100..100 of own range so trends remain visible regardless of absolute scale
-    const norm = raw.map(v => v == null ? null : (v / maxAbs) * 100);
+    const isSel = sym === selected;
+    let data = raw;
+    if (!isSel) {
+      const absVals = raw.filter(v => v != null).map(Math.abs);
+      const maxAbs = absVals.length ? Math.max(...absVals) : 1;
+      data = raw.map(v => v == null ? null : (v / maxAbs) * 100);
+    }
     return {
-      label: sym,
-      data: norm,
-      rawData: raw,               // keep original for tooltip
+      label: isSel ? sym + " (raw)" : sym,
+      data,
+      rawData: raw,
       borderColor: COLORS[sym],
       backgroundColor: "transparent",
       tension: 0.2,
-      pointRadius: 2,
-      borderWidth: sym === selected ? 3 : 1.5,
+      pointRadius: isSel ? 2.5 : 1.5,
+      borderWidth: isSel ? 3 : 1.5,
       spanGaps: true,
+      yAxisID: isSel ? "y" : "y1",
     };
   });
 
@@ -437,7 +441,7 @@ function renderMultiChart(hist) {
           callbacks: {
             label: (ctx) => {
               const raw = ctx.dataset.rawData ? ctx.dataset.rawData[ctx.dataIndex] : ctx.parsed.y;
-              return `${ctx.dataset.label}: ${formatGex(raw)} (norm ${ctx.parsed.y.toFixed(0)})`;
+              return `${ctx.dataset.label.replace(" (raw)", "")}: ${formatGex(raw)}`;
             }
           }
         }
@@ -445,9 +449,16 @@ function renderMultiChart(hist) {
       scales: {
         x: { ticks: { color: "#8b949e", maxTicksLimit: 14 }, grid: { color: "#30363d" } },
         y: {
-          title: { display: true, text: "Normalized (% of own range)", color: "#8b949e" },
-          ticks: { color: "#8b949e", callback: (v) => v.toFixed(0) },
+          position: "left",
+          title: { display: true, text: selected + " Net GEX", color: "#e6edf3" },
+          ticks: { color: "#e6edf3", callback: (v) => formatGex(v) },
           grid: { color: "#30363d" },
+        },
+        y1: {
+          position: "right",
+          title: { display: true, text: "Others (own range %)", color: "#8b949e" },
+          ticks: { color: "#8b949e", callback: (v) => v.toFixed(0) },
+          grid: { drawOnChartArea: false },
           suggestedMin: -110,
           suggestedMax: 110,
         },
