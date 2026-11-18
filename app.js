@@ -327,7 +327,12 @@ async function renderHistoryChart(hist, symbol) {
         title: { display: true, text: `5-Day Net GEX Trend \u2014 ${symbol} (${filtered.length} points)`, color: "#e6edf3" },
         tooltip: {
           callbacks: {
-            label: (ctx) => "Net GEX: " + formatGex(ctx.parsed.y)
+            label: (ctx) => {
+              if (ctx.dataset.label === "Price") {
+                return `${symbol}: ${ctx.parsed.y != null ? ctx.parsed.y.toLocaleString(undefined, {maximumFractionDigits: 2}) : "--"}`;
+              }
+              return "Net GEX: " + formatGex(ctx.parsed.y);
+            }
           }
         }
       },
@@ -1048,11 +1053,17 @@ function updateSkew(schwab, symbol) {
     }
     saveSkewPoint(rr, symbol);
     const pts = loadSkewStore().filter(p => (p.symbol || "ES") === symbol).map(p => p.skewRR);
+    if (vsEl) {
+      vsEl.title = "Difference between the current 25Δ risk reversal and the average of recent stored points. Positive means skew is higher than recent average (more demand for downside protection).";
+    }
     if (vsEl && pts.length) {
       const avg = pts.reduce((a, b) => a + b, 0) / pts.length;
       const diff = rr - avg;
       vsEl.textContent = (diff >= 0 ? "+" : "") + diff.toFixed(2);
       vsEl.style.color = diff > 0 ? "#f85149" : "#3fb950";
+    }
+    if (regEl) {
+      regEl.title = "Where the current 25Δ RR ranks in the recent distribution. Elevated = top quartile (puts relatively expensive). Low = bottom quartile (puts relatively cheap). Normal = middle.";
     }
     if (regEl && pts.length >= 5) {
       const sorted = [...pts].sort((a, b) => a - b);
