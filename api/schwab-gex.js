@@ -56,6 +56,8 @@ export default async function handler(req, res) {
 
     const spot = chain.underlyingPrice;
     if (!spot) return res.status(502).json({ error: "No underlying price" });
+    // Prefer the underlying quote time if Schwab provides it
+    const quoteTs = chain.underlying?.quoteTime || chain.underlying?.tradeTime || chain.underlying?.regularMarketTime || null;
 
     const gexByStrike = {};
     const processMap = (expMap, sign) => {
@@ -214,7 +216,8 @@ export default async function handler(req, res) {
       gammaFlip,
       skewRR,
       esQuotes,
-      dataTs: now,
+      dataTs: quoteTs || now,
+      quoteTime: quoteTs,
       strikeCount: strikes.length,
       hasGamma: gex.some(v => Math.abs(v) > 0),
       note: "Schwab option chain typically stops updating after the cash close",
