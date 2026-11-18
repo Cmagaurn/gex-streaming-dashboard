@@ -184,9 +184,7 @@ async function fetchVixTerm() {
     const [vix, vix3m] = await Promise.all([
       fetchYahoo("^VIX"),
       fetchYahoo("^VIX3M")
-    ];
-  updateDataAge(_sources);
-  renderSourceBadges(_sources);
+    ]);
     return { vix, vix3m, ratio: (vix && vix3m) ? vix / vix3m : null };
   } catch { return null; }
 }
@@ -877,9 +875,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
         ctx.save();
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4];
-  updateDataAge(_sources);
-  renderSourceBadges(_sources);
+        ctx.setLineDash([4, 4]);
         ctx.beginPath();
         ctx.moveTo(xScale.left, y);
         ctx.lineTo(xScale.right, y);
