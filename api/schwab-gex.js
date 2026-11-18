@@ -219,6 +219,7 @@ export default async function handler(req, res) {
       skewRR,
       esQuotes,
       dataTs: quoteTs || now,
+      receivedAt: now,
       quoteTime: quoteTs,
       strikeCount: strikes.length,
       hasGamma: gex.some(v => Math.abs(v) > 0),

@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     const timestamps = result?.timestamp || [];
     const closes = result?.indicators?.quote?.[0]?.close || [];
     const series = timestamps.map((t, i) => ({ t: t * 1000, c: closes[i] })).filter(p => p.c != null);
-    return res.status(200).json({ symbol, price, series });
+    return res.status(200).json({ symbol, price, series, receivedAt: Date.now() });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
