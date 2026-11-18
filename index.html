@@ -132,7 +132,7 @@
       </div>
     </section>
 
-    <section class="chart-section" style="margin-top: 1.5rem; margin-bottom: 2.5rem; height: 340px; padding-bottom: 1.5rem;">
+    <section class="chart-section" style="margin-top: 1.5rem; margin-bottom: 1rem; height: 360px; padding-bottom: 0.5rem;">
       <div id="skewSummary" style="display:flex;gap:1.5rem;align-items:baseline;margin-bottom:0.6rem;flex-wrap:wrap">
         <div>
           <div style="font-size:0.75rem;color:#8b949e">25Δ RR</div>
@@ -148,11 +148,11 @@
         </div>
       </div>
       <canvas id="skewChart"></canvas>
-      <details style="margin-top:0.5rem;color:#8b949e;font-size:0.85rem">
-        <summary>What the 25Δ risk reversal shows</summary>
-        <p>A drop means put skew is cheapening relative to calls (less demand for downside protection). A rise means puts are getting more expensive vs calls. Values are in volatility points for the front expiration.</p>
-      </details>
     </section>
+    <details style="margin: 0.5rem 0 2rem 0; color:#8b949e; font-size:0.85rem; padding: 0.5rem 0;">
+      <summary style="cursor:pointer; user-select:none;">What the 25Δ risk reversal shows</summary>
+      <p style="margin: 0.4rem 0 0 0;">A drop means put skew is cheapening relative to calls (less demand for downside protection). A rise means puts are getting more expensive vs calls. Values are in volatility points for the front expiration.</p>
+    </details>
 
     
 
@@ -173,6 +173,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=33"></script>
+  <script src="app.js?v=34"></script>
 </body>
 </html>
