@@ -203,6 +203,7 @@ export default async function handler(req, res) {
     const volValues = volStrikes.map(s => volByStrike[s]);
     const oiValues = oiStrikes.map(s => oiByStrike[s]);
 
+    const now = Date.now();
     return res.status(200).json({
       spot,
       strikes,
@@ -213,6 +214,10 @@ export default async function handler(req, res) {
       gammaFlip,
       skewRR,
       esQuotes,
+      dataTs: now,
+      strikeCount: strikes.length,
+      hasGamma: gex.some(v => Math.abs(v) > 0),
+      note: "Schwab option chain typically stops updating after the cash close",
       esOpen: esQuotes[0]?.open ?? null,
       esPrevClose: esQuotes[0]?.prevClose ?? null,
       pcVol,
