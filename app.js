@@ -1049,9 +1049,13 @@ function renderSkewChart(hist, symbol) {
   const canvas = document.getElementById("skewChart");
   if (!canvas) return;
   const serverPts = (hist || []).filter(e => (e.symbol || "ES") === symbol && e.skewRR != null)
-    .map(e => ({ ts: e.ts, skewRR: e.skewRR }));
-  const localPts = loadSkewStore().filter(p => (p.symbol || "ES") === symbol);
-  const points = [...serverPts, ...localPts].sort((a, b) => a.ts - b.ts);
+    .map(e => ({ ts: e.ts, skewRR: Number(e.skewRR) }));
+  const localPts = loadSkewStore().filter(p => (p.symbol || "ES") === symbol && p.skewRR != null)
+    .map(p => ({ ts: p.ts, skewRR: Number(p.skewRR) }));
+  // Prefer server points; add local points that are newer than the latest server point
+  const latestServer = serverPts.length ? Math.max(...serverPts.map(p => p.ts)) : 0;
+  const extraLocal = localPts.filter(p => p.ts > latestServer + 60000);
+  const points = [...serverPts, ...extraLocal].sort((a, b) => a.ts - b.ts);
   const labels = points.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
   const values = points.map(e => e.skewRR);
   if (skewChart) skewChart.destroy();
