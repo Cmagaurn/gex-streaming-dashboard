@@ -111,6 +111,16 @@
         </label>
       </div>
       <canvas id="gexChart"></canvas>
+      <details style="margin: 2.5rem 0 3rem 0; color:#8b949e; font-size:0.85rem">
+        <summary style="cursor:pointer; color:#e6edf3">What the levels mean</summary>
+        <div style="margin-top:0.6rem; line-height:1.45">
+          <p><strong>Spot</strong> — current price of the selected symbol. Schwab uses its live underlying quote; ZeroGEX uses the price its levels were computed against.</p>
+          <p><strong>Gamma Flip</strong> — the strike where net dealer gamma changes sign. Above it dealers are typically long gamma (dampen moves); below it they are short gamma (amplify moves).</p>
+          <p><strong>Call Wall</strong> — strike with the largest positive gamma (usually a call concentration). Often acts as resistance when dealers are long gamma.</p>
+          <p><strong>Put Wall</strong> — strike with the largest negative gamma (usually a put concentration). Often acts as support or a magnet when dealers are short gamma.</p>
+          <p>Lines on the left are ZeroGEX (delayed). Lines on the right are Schwab (closer to real-time). When the box value and the plotted strike differ, both are shown. Toggle the checkboxes to show or hide each set.</p>
+        </div>
+      </details>
       <p style="font-size:0.8rem;color:#8b949e;margin:0.4rem 0 0"><div style="margin-top: 1rem; padding-bottom: 0.5rem; color:#8b949e; font-size:0.8rem;">Session volume profile (blue bars on the right) is derived from Schwab total volume by strike. Higher volume clusters often align with stronger gamma walls. Dashed lines mark spot, gamma flip, call wall, and put wall.</div></p>
     </section>
 
@@ -187,6 +197,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=45"></script>
+  <script src="app.js?v=46"></script>
 </body>
 </html>

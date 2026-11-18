@@ -879,7 +879,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
 
 
       const drawnYs = [];
-      const draw = (idx, color, label) => {
+      const draw = (idx, color, label, side = "left") => {
         if (idx < 0) return;
         let y = yScale.getPixelForValue(idx);
         if (y < yScale.top || y > yScale.bottom) return;
@@ -899,7 +899,8 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
         ctx.stroke();
         ctx.fillStyle = color;
         ctx.font = "bold 12px sans-serif";
-        ctx.fillText(label, xScale.left + 8, labelY);
+        const textX = side === "right" ? xScale.right - ctx.measureText(label).width - 8 : xScale.left + 8;
+        ctx.fillText(label, textX, labelY);
         ctx.restore();
       };
       const showZg = document.getElementById("showZgLevels")?.checked !== false;
@@ -910,20 +911,25 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
         const sFlip = schwab?.gammaFlip;
         const sCall = schwab?.callWall;
         const sPut = schwab?.putWall;
-        if (sSpot != null) draw(findIdx(sSpot), "#ffffff", "S Spot " + sSpot.toLocaleString());
-        if (sFlip != null) draw(findIdx(sFlip), "#00ffff", "S Flip " + sFlip.toLocaleString());
-        if (sCall != null) draw(findIdx(sCall), "#00ffff", "S Call " + sCall.toLocaleString());
-        if (sPut != null) draw(findIdx(sPut), "#ff64ff", "S Put " + sPut.toLocaleString());
+        const fmt = (box, strike) => {
+          if (box == null) return strike != null ? strike.toLocaleString() : "";
+          if (strike == null || Math.abs(box - strike) < 0.5) return box.toLocaleString();
+          return box.toLocaleString() + " (strike " + strike.toLocaleString() + ")";
+        };
+        if (sSpot != null) draw(findIdx(sSpot), "#ffffff", "S Spot " + fmt(sSpot, sSpot), "right");
+        if (sFlip != null) draw(findIdx(sFlip), "#00ffff", "S Flip " + fmt(sFlip, sFlip), "right");
+        if (sCall != null) draw(findIdx(sCall), "#00ffff", "S Call " + fmt(sCall, sCall), "right");
+        if (sPut != null) draw(findIdx(sPut), "#ff64ff", "S Put " + fmt(sPut, sPut), "right");
       }
       if (showZg) {
         const zSpot = focusSpot;
         const zFlip = zg?.flip;
         const zCall = zg?.callWall;
         const zPut = zg?.putWall;
-        if (zSpot != null) draw(findIdx(zSpot), "#8b949e", "ZG Spot " + zSpot.toLocaleString());
-        if (zFlip != null) draw(findIdx(zFlip), "#3fb950", "ZG Flip " + zFlip.toLocaleString());
-        if (zCall != null) draw(findIdx(zCall), "#3fb950", "ZG Call " + zCall.toLocaleString());
-        if (zPut != null) draw(findIdx(zPut), "#f85149", "ZG Put " + zPut.toLocaleString());
+        if (zSpot != null) draw(findIdx(zSpot), "#8b949e", "ZG Spot " + zSpot.toLocaleString(), "left");
+        if (zFlip != null) draw(findIdx(zFlip), "#3fb950", "ZG Flip " + zFlip.toLocaleString(), "left");
+        if (zCall != null) draw(findIdx(zCall), "#3fb950", "ZG Call " + zCall.toLocaleString(), "left");
+        if (zPut != null) draw(findIdx(zPut), "#f85149", "ZG Put " + zPut.toLocaleString(), "left");
       }
     }
   };
