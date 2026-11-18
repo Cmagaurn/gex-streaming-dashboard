@@ -132,19 +132,19 @@
       </div>
     </section>
 
-    <section class="chart-section" style="margin-top: 1.5rem; height: 280px;">
+    <section class="chart-section" style="margin-top: 1.5rem; margin-bottom: 2.5rem; height: 340px; padding-bottom: 1.5rem;">
       <div id="skewSummary" style="display:flex;gap:1.5rem;align-items:baseline;margin-bottom:0.6rem;flex-wrap:wrap">
         <div>
           <div style="font-size:0.75rem;color:#8b949e">25Δ RR</div>
           <div id="skewCurrent" style="font-size:1.6rem;font-weight:600">--</div>
         </div>
         <div>
-          <div style="font-size:0.75rem;color:#8b949e">vs 5-day avg</div>
-          <div id="skewVsAvg" style="font-size:1rem">--</div>
+          <div style="font-size:0.75rem;color:#8b949e;cursor:help" title="Difference between the current 25Δ risk reversal and the average of recent stored points. Positive means skew is higher than recent average (more demand for downside protection).">vs 5-day avg</div>
+          <div id="skewVsAvg" style="font-size:1rem;cursor:help" title="Difference between the current 25Δ risk reversal and the average of recent stored points. Positive means skew is higher than recent average (more demand for downside protection).">--</div>
         </div>
         <div>
-          <div style="font-size:0.75rem;color:#8b949e">Regime</div>
-          <div id="skewRegime" style="font-size:1rem">--</div>
+          <div style="font-size:0.75rem;color:#8b949e;cursor:help" title="Where the current 25Δ RR ranks in the recent distribution. Elevated = top quartile (puts relatively expensive). Low = bottom quartile (puts relatively cheap). Normal = middle.">Regime</div>
+          <div id="skewRegime" style="font-size:1rem;cursor:help" title="Where the current 25Δ RR ranks in the recent distribution. Elevated = top quartile (puts relatively expensive). Low = bottom quartile (puts relatively cheap). Normal = middle.">--</div>
         </div>
       </div>
       <canvas id="skewChart"></canvas>
@@ -173,6 +173,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=32"></script>
+  <script src="app.js?v=33"></script>
 </body>
 </html>
