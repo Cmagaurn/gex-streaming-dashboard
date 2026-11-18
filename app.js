@@ -150,24 +150,15 @@ async function fetchYahoo(symbol) {
   const res = await fetch(`/api/yahoo?symbol=${encodeURIComponent(symbol)}`);
   if (!res.ok) throw new Error(`Yahoo proxy ${res.status}`);
   const data = await res.json();
-  return data.price ?? null;
+  return { price: data.price ?? null, receivedAt: data.receivedAt };
 }
 
 async function fetchZeroGEX(symbol) {
-  const res = await fetch(ZEROGEX_MCP, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "tools/call",
-      params: { name: "get_gamma_levels", arguments: { symbol } }
-    })
-  });
+  const res = await fetch(`/api/zerogex?symbol=${encodeURIComponent(symbol)}`);
   if (!res.ok) throw new Error(`ZeroGEX ${res.status}`);
-  const json = await res.json();
-  const text = json.result?.content?.[0]?.text || "";
-  return parseZeroGEX(text);
+  const data = await res.json();
+  const parsed = parseZeroGEX(data.text || "");
+  return { ...parsed, receivedAt: data.receivedAt };
 }
 
 function parseZeroGEX(text) {
@@ -196,7 +187,7 @@ function parseZeroGEX(text) {
 
 async function fetchAlgoX(symbol) {
   const algoxSym = ALGOX_MAP[symbol] || "SPY";
-  const res = await fetch(`${ALGOX_BASE}/${algoxSym}?strikes=1`);
+  const res = await fetch(`/api/algox?symbol=${encodeURIComponent(algoxSym)}`);
   if (!res.ok) throw new Error(`AlgoX ${res.status}`);
   return res.json();
 }
@@ -644,13 +635,17 @@ async function fetchAll() {
     ];
     if (showSchwab) promises.push(fetchSchwabGex(symbol));
     const results = await Promise.allSettled(promises);
-    const [zgRes, algoxRes, price, tnx, oil, vix] = results;
+    const [zgRes, algoxRes, priceRes, tnxRes, oilRes, vixRes] = results;
     const schwab = showSchwab && results[6] && results[6].status === "fulfilled" ? results[6].value : null;
+    const zg = zgRes.status === "fulfilled" ? zgRes.value : null;
+    const algox = algoxRes.status === "fulfilled" ? algoxRes.value : null;
+    const price = priceRes.status === "fulfilled" ? priceRes.value : null;
+    const tnx = tnxRes.status === "fulfilled" ? tnxRes.value : null;
+    const oil = oilRes.status === "fulfilled" ? oilRes.value : null;
+    const vix = vixRes.status === "fulfilled" ? vixRes.value : null;
     if (showSchwab && els.schwabNote) {
       els.schwabNote.textContent = schwab ? "(Schwab overlay active)" : "(Schwab unavailable)";
     }
-    const zg = zgRes.status === "fulfilled" ? zgRes.value : null;
-    const algox = algoxRes.status === "fulfilled" ? algoxRes.value : null;
     if (!zg) console.warn("ZeroGEX failed", zgRes.reason);
 
     if (zg) renderLevels(zg, symbol);
@@ -658,26 +653,25 @@ async function fetchAll() {
     updateEsQuotes(schwab);
     updatePutCall(schwab);
     updateSkew(schwab, symbol);
-    const received = Date.now();
     const _sources = [
-      { name: "ZeroGEX", ts: received, extra: "received · assumed ~15m delayed" },
-      { name: "AlgoX", ts: received, extra: "received · no source time" },
-      { name: "Schwab chain", ts: schwab?.quoteTime || schwab?.dataTs || received, extra: schwab ? ((schwab.quoteTime ? "quote time" : "received") + " · " + schwab.strikeCount + " strikes" + (schwab.hasGamma ? "" : ", no gamma")) : "unavailable" },
-      { name: "Schwab futures", ts: schwab?.esQuotes?.[0]?.quoteTime || schwab?.quoteTime || schwab?.dataTs || received, extra: schwab?.esQuotes?.[0]?.quoteTime ? "quote time" : "received" },
-      { name: "Yahoo", ts: received, extra: "received" },
+      { name: "ZeroGEX", ts: zg?.receivedAt, extra: "server received · assumed ~15m delayed" },
+      { name: "AlgoX", ts: algox?.receivedAt, extra: "server received · no source time" },
+      { name: "Schwab chain", ts: schwab?.quoteTime || schwab?.receivedAt || schwab?.dataTs, extra: schwab ? ((schwab.quoteTime ? "quote time" : "server received") + " · " + schwab.strikeCount + " strikes" + (schwab.hasGamma ? "" : ", no gamma")) : "unavailable" },
+      { name: "Schwab futures", ts: schwab?.esQuotes?.[0]?.quoteTime || schwab?.quoteTime || schwab?.receivedAt, extra: schwab?.esQuotes?.[0]?.quoteTime ? "quote time" : "server received" },
+      { name: "Yahoo", ts: price?.receivedAt, extra: "server received" },
     ];
     setSourceTimestamps(_sources);
-    updateMarketPrices(price?.status === "fulfilled" ? price.value : null,
-      tnx?.status === "fulfilled" ? tnx.value : null,
-      oil?.status === "fulfilled" ? oil.value : null,
-      vix?.status === "fulfilled" ? vix.value : null,
+    updateMarketPrices(price?.price ?? null,
+      tnx?.price ?? null,
+      oil?.price ?? null,
+      vix?.price ?? null,
       symbol,
       zg?.spot,
       schwab);
     const hist = await loadHistory();
     const symbolHist = filterHist(hist, symbol);
     if (zg) renderIndicator(zg, symbolHist);
-    const focusSpot = schwab?.spot ?? zg?.spot ?? (price?.status === "fulfilled" ? price.value : null);
+    const focusSpot = schwab?.spot ?? zg?.spot ?? price?.price ?? null;
     renderChart(algox, focusSpot, zg, symbol, schwab);
     window._lastHist = hist;
     window._lastSymbol = symbol;
