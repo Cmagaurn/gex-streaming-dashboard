@@ -90,6 +90,21 @@ const els = {
   schwabNet: document.getElementById("schwabNet"),
 };
 
+
+function fmtAge(ts) {
+  if (!ts) return "unknown";
+  const age = Math.round((Date.now() - ts) / 1000);
+  if (age < 60) return age + "s ago";
+  if (age < 3600) return Math.round(age / 60) + "m ago";
+  return Math.round(age / 3600) + "h ago";
+}
+function updateDataAge(sources) {
+  const el = document.getElementById("dataAge");
+  if (!el) return;
+  const lines = sources.filter(s => s).map(s => `${s.name}: ${fmtAge(s.ts)}${s.extra ? " (" + s.extra + ")" : ""}`);
+  el.innerHTML = lines.join(" · ");
+}
+
 function setStatus(msg, isError = false) {
   if (!els.status) return;
   els.status.textContent = msg;
@@ -592,6 +607,13 @@ async function fetchAll() {
     updateEsQuotes(schwab);
     updatePutCall(schwab);
     updateSkew(schwab, symbol);
+    updateDataAge([
+      { name: "ZeroGEX", ts: zg?.ts || Date.now(), extra: "delayed ~15m" },
+      { name: "AlgoX", ts: Date.now() },
+      { name: "Schwab chain", ts: schwab?.dataTs, extra: schwab ? (schwab.strikeCount + " strikes" + (schwab.hasGamma ? "" : ", no gamma")) : "unavailable" },
+      { name: "Schwab futures", ts: schwab?.dataTs },
+      { name: "Yahoo", ts: Date.now() },
+    ]);
     updateMarketPrices(price?.status === "fulfilled" ? price.value : null,
       tnx?.status === "fulfilled" ? tnx.value : null,
       oil?.status === "fulfilled" ? oil.value : null,
