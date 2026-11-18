@@ -74,6 +74,7 @@ const els = {
   metricsCanvas: document.getElementById("metricsChart"),
   multiCanvas: document.getElementById("multiHistoryChart"),
   esPrice: document.getElementById("esPrice"),
+  openPrice: document.getElementById("openPrice"),
   tnxPrice: document.getElementById("tnxPrice"),
   oilPrice: document.getElementById("oilPrice"),
   timeframe: document.getElementById("timeframe"),
@@ -650,6 +651,8 @@ function arrowFor(current, previous) {
 
 function updateMarketPrices(price, tnx, oil, vix, symbol, spot, schwab) {
   if (els.esPrice) els.esPrice.textContent = `${symbol}: ${price != null ? price.toLocaleString() : "--"}`;
+  const openVal = (schwab && schwab.esOpen) || (schwab && schwab.esQuotes && schwab.esQuotes[0] && schwab.esQuotes[0].open);
+  if (els.openPrice) els.openPrice.textContent = `Open: ${openVal != null ? openVal.toLocaleString() : "--"}`;
   const tnxArrow = arrowFor(tnx, prevTnx);
   if (els.tnxPrice) els.tnxPrice.innerHTML = `10Y: ${tnx != null ? tnx.toFixed(3) + "%" : "--"}${tnxArrow}`;
   if (tnx != null) prevTnx = tnx;
@@ -1030,14 +1033,40 @@ function renderSkewChart(hist, symbol) {
 
 function updateSkew(schwab, symbol) {
   const el = document.getElementById("skewRR");
-  if (!el) return;
+  const curEl = document.getElementById("skewCurrent");
+  const vsEl = document.getElementById("skewVsAvg");
+  const regEl = document.getElementById("skewRegime");
   if (schwab && schwab.skewRR != null) {
-    el.textContent = `25Δ RR: ${schwab.skewRR.toFixed(2)} vol pts`;
-    saveSkewPoint(schwab.skewRR, symbol);
+    const rr = schwab.skewRR;
+    if (el) {
+      el.textContent = `25Δ RR: ${rr.toFixed(2)} vol pts`;
+      el.style.color = rr > 0 ? "#f85149" : "#3fb950";
+    }
+    if (curEl) {
+      curEl.textContent = (rr >= 0 ? "+" : "") + rr.toFixed(2);
+      curEl.style.color = rr > 0 ? "#f85149" : "#3fb950";
+    }
+    saveSkewPoint(rr, symbol);
+    const pts = loadSkewStore().filter(p => (p.symbol || "ES") === symbol).map(p => p.skewRR);
+    if (vsEl && pts.length) {
+      const avg = pts.reduce((a, b) => a + b, 0) / pts.length;
+      const diff = rr - avg;
+      vsEl.textContent = (diff >= 0 ? "+" : "") + diff.toFixed(2);
+      vsEl.style.color = diff > 0 ? "#f85149" : "#3fb950";
+    }
+    if (regEl && pts.length >= 5) {
+      const sorted = [...pts].sort((a, b) => a - b);
+      const rank = sorted.filter(v => v <= rr).length / sorted.length;
+      let label = "Normal", color = "#d29922";
+      if (rank > 0.75) { label = "Elevated"; color = "#f85149"; }
+      else if (rank < 0.25) { label = "Low"; color = "#3fb950"; }
+      regEl.textContent = label;
+      regEl.style.color = color;
+    }
     renderSkewChart(window._lastHist || [], symbol);
-    el.style.color = schwab.skewRR > 0 ? "#f85149" : "#3fb950";
   } else {
-    el.textContent = "25Δ RR: --";
+    if (el) el.textContent = "25Δ RR: --";
+    if (curEl) curEl.textContent = "--";
   }
 }
 

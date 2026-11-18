@@ -74,6 +74,7 @@
       <div class="level" id="impliedMove">Implied Move: --</div>
       <div class="level regime" id="regime">Regime: --</div>
       <div class="level" id="esPrice">Price: --</div>
+      <div class="level" id="openPrice">Open: --</div>
       <div class="level" id="tnxPrice">10Y: --</div>
       <div class="level" id="oilPrice">BZ Oil: --</div>
       <div class="meta" id="meta">Updated: -- · Age: --</div>
@@ -132,6 +133,20 @@
     </section>
 
     <section class="chart-section" style="margin-top: 1.5rem; height: 280px;">
+      <div id="skewSummary" style="display:flex;gap:1.5rem;align-items:baseline;margin-bottom:0.6rem;flex-wrap:wrap">
+        <div>
+          <div style="font-size:0.75rem;color:#8b949e">25Δ RR</div>
+          <div id="skewCurrent" style="font-size:1.6rem;font-weight:600">--</div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:#8b949e">vs 5-day avg</div>
+          <div id="skewVsAvg" style="font-size:1rem">--</div>
+        </div>
+        <div>
+          <div style="font-size:0.75rem;color:#8b949e">Regime</div>
+          <div id="skewRegime" style="font-size:1rem">--</div>
+        </div>
+      </div>
       <canvas id="skewChart"></canvas>
       <details style="margin-top:0.5rem;color:#8b949e;font-size:0.85rem">
         <summary>What the 25Δ risk reversal shows</summary>
@@ -158,6 +173,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=31"></script>
+  <script src="app.js?v=32"></script>
 </body>
 </html>
