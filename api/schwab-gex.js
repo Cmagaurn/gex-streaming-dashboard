@@ -56,8 +56,9 @@ export default async function handler(req, res) {
 
     const spot = chain.underlyingPrice;
     if (!spot) return res.status(502).json({ error: "No underlying price" });
-    // Prefer the underlying quote time if Schwab provides it
-    const quoteTs = chain.underlying?.quoteTime || chain.underlying?.tradeTime || chain.underlying?.regularMarketTime || null;
+    // Prefer the underlying quote time (ms) if Schwab provides it
+    const u = chain.underlying || {};
+    const quoteTs = u.quoteTime || u.tradeTime || u.regularMarketTime || null;
 
     const gexByStrike = {};
     const processMap = (expMap, sign) => {
@@ -165,6 +166,7 @@ export default async function handler(req, res) {
             return {
               symbol: sym,
               last: q.lastPrice ?? q.mark ?? null,
+              quoteTime: q.quoteTime || q.tradeTime || null,
               open: q.openPrice ?? null,
               prevClose: q.closePrice ?? q.previousClose ?? null,
               bid: q.bidPrice ?? null,
