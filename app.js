@@ -92,29 +92,52 @@ const els = {
 };
 
 
+let _sourceTimestamps = [];
+let _ageTimer = null;
+
 function fmtAge(ts) {
   if (!ts) return "unknown";
   const age = Math.round((Date.now() - ts) / 1000);
-  if (age < 60) return age + "s ago";
-  if (age < 3600) return Math.round(age / 60) + "m ago";
-  return Math.round(age / 3600) + "h ago";
+  const d = new Date(ts);
+  const clock = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  let ago;
+  if (age < 60) ago = age + "s";
+  else if (age < 3600) ago = Math.round(age / 60) + "m";
+  else ago = Math.round(age / 3600) + "h";
+  return clock + " · " + ago + " old";
 }
 
-function renderSourceBadges(sources) {
+function renderSourceBadges() {
   const el = document.getElementById("sourceBadges");
-  if (!el) return;
-  el.innerHTML = sources.map(s => {
+  if (!el || !_sourceTimestamps.length) return;
+  el.innerHTML = _sourceTimestamps.map(s => {
     const age = s.ts ? fmtAge(s.ts) : "unknown";
     const color = s.priority === 1 ? "#3fb950" : s.priority === 2 ? "#d29922" : "#8b949e";
-    return `<span style="background:${color}22;border:1px solid ${color};color:${color};padding:0.15rem 0.5rem;border-radius:4px">${s.name} · ${age}</span>`;
+    const extra = s.extra ? ` (${s.extra})` : "";
+    return `<span style="background:${color}22;border:1px solid ${color};color:${color};padding:0.15rem 0.5rem;border-radius:4px">${s.name} · ${age}${extra}</span>`;
   }).join("");
 }
 
-function updateDataAge(sources) {
+function updateDataAge() {
   const el = document.getElementById("dataAge");
-  if (!el) return;
-  const lines = sources.filter(s => s).map(s => `${s.name}: ${fmtAge(s.ts)}${s.extra ? " (" + s.extra + ")" : ""}`);
+  if (!el || !_sourceTimestamps.length) return;
+  const lines = _sourceTimestamps.map(s => `${s.name}: ${s.ts ? fmtAge(s.ts) : "unknown"}${s.extra ? " (" + s.extra + ")" : ""}`);
   el.innerHTML = lines.join(" · ");
+}
+
+function startAgeTimer() {
+  if (_ageTimer) clearInterval(_ageTimer);
+  _ageTimer = setInterval(() => {
+    renderSourceBadges();
+    updateDataAge();
+  }, 1000);
+}
+
+function setSourceTimestamps(sources) {
+  _sourceTimestamps = sources || [];
+  renderSourceBadges();
+  updateDataAge();
+  startAgeTimer();
 }
 
 function setStatus(msg, isError = false) {
@@ -635,15 +658,15 @@ async function fetchAll() {
     updateEsQuotes(schwab);
     updatePutCall(schwab);
     updateSkew(schwab, symbol);
+    const received = Date.now();
     const _sources = [
-      { name: "ZeroGEX", ts: zg?.ts || Date.now(), extra: "delayed ~15m" },
-      { name: "AlgoX", ts: Date.now() },
-      { name: "Schwab chain", ts: schwab?.dataTs, extra: schwab ? (schwab.strikeCount + " strikes" + (schwab.hasGamma ? "" : ", no gamma")) : "unavailable" },
-      { name: "Schwab futures", ts: schwab?.dataTs },
-      { name: "Yahoo", ts: Date.now() },
+      { name: "ZeroGEX", ts: received, extra: "received · assumed ~15m delayed" },
+      { name: "AlgoX", ts: received, extra: "received · no source time" },
+      { name: "Schwab chain", ts: schwab?.quoteTime || schwab?.dataTs || received, extra: schwab ? ((schwab.quoteTime ? "quote time" : "received") + " · " + schwab.strikeCount + " strikes" + (schwab.hasGamma ? "" : ", no gamma")) : "unavailable" },
+      { name: "Schwab futures", ts: schwab?.esQuotes?.[0]?.quoteTime || schwab?.quoteTime || schwab?.dataTs || received, extra: schwab?.esQuotes?.[0]?.quoteTime ? "quote time" : "received" },
+      { name: "Yahoo", ts: received, extra: "received" },
     ];
-  updateDataAge(_sources);
-  renderSourceBadges(_sources);
+    setSourceTimestamps(_sources);
     updateMarketPrices(price?.status === "fulfilled" ? price.value : null,
       tnx?.status === "fulfilled" ? tnx.value : null,
       oil?.status === "fulfilled" ? oil.value : null,
