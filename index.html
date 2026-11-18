@@ -102,6 +102,14 @@
     </section>
 
     <section class="chart-section">
+      <div style="display:flex;gap:1rem;align-items:center;margin-bottom:0.4rem;font-size:0.85rem">
+        <label style="display:flex;align-items:center;gap:0.3rem;color:#e6edf3">
+          <input type="checkbox" id="showZgLevels" checked> ZeroGEX levels
+        </label>
+        <label style="display:flex;align-items:center;gap:0.3rem;color:#e6edf3">
+          <input type="checkbox" id="showSchwabLevels" checked> Schwab levels
+        </label>
+      </div>
       <canvas id="gexChart"></canvas>
       <p style="font-size:0.8rem;color:#8b949e;margin:0.4rem 0 0"><div style="margin-top: 1rem; padding-bottom: 0.5rem; color:#8b949e; font-size:0.8rem;">Session volume profile (blue bars on the right) is derived from Schwab total volume by strike. Higher volume clusters often align with stronger gamma walls. Dashed lines mark spot, gamma flip, call wall, and put wall.</div></p>
     </section>
@@ -179,6 +187,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=44"></script>
+  <script src="app.js?v=45"></script>
 </body>
 </html>

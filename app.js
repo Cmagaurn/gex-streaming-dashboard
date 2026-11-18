@@ -902,14 +902,29 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
         ctx.fillText(label, xScale.left + 8, labelY);
         ctx.restore();
       };
-      const spot = schwab?.spot ?? focusSpot;
-      const flip = schwab?.gammaFlip ?? zg?.flip;
-      const call = schwab?.callWall ?? zg?.callWall;
-      const put = schwab?.putWall ?? zg?.putWall;
-      draw(findIdx(spot), "#ffffff", "Spot " + (spot != null ? spot.toLocaleString() : ""));
-      draw(findIdx(flip), "#00ffff", "Flip " + (flip != null ? flip.toLocaleString() : ""));
-      draw(findIdx(call), "#00ffff", "Call " + (call != null ? call.toLocaleString() : ""));
-      draw(findIdx(put), "#ff64ff", "Put " + (put != null ? put.toLocaleString() : ""));
+      const showZg = document.getElementById("showZgLevels")?.checked !== false;
+      const showSchwab = document.getElementById("showSchwabLevels")?.checked !== false;
+
+      if (showSchwab) {
+        const sSpot = schwab?.spot;
+        const sFlip = schwab?.gammaFlip;
+        const sCall = schwab?.callWall;
+        const sPut = schwab?.putWall;
+        if (sSpot != null) draw(findIdx(sSpot), "#ffffff", "S Spot " + sSpot.toLocaleString());
+        if (sFlip != null) draw(findIdx(sFlip), "#00ffff", "S Flip " + sFlip.toLocaleString());
+        if (sCall != null) draw(findIdx(sCall), "#00ffff", "S Call " + sCall.toLocaleString());
+        if (sPut != null) draw(findIdx(sPut), "#ff64ff", "S Put " + sPut.toLocaleString());
+      }
+      if (showZg) {
+        const zSpot = focusSpot;
+        const zFlip = zg?.flip;
+        const zCall = zg?.callWall;
+        const zPut = zg?.putWall;
+        if (zSpot != null) draw(findIdx(zSpot), "#8b949e", "ZG Spot " + zSpot.toLocaleString());
+        if (zFlip != null) draw(findIdx(zFlip), "#3fb950", "ZG Flip " + zFlip.toLocaleString());
+        if (zCall != null) draw(findIdx(zCall), "#3fb950", "ZG Call " + zCall.toLocaleString());
+        if (zPut != null) draw(findIdx(zPut), "#f85149", "ZG Put " + zPut.toLocaleString());
+      }
     }
   };
 
@@ -1134,4 +1149,6 @@ function updateSkew(schwab, symbol) {
 }
 
 fetchAll();
+  document.getElementById("showZgLevels")?.addEventListener("change", () => fetchAll());
+  document.getElementById("showSchwabLevels")?.addEventListener("change", () => fetchAll());
 startPolling();
