@@ -94,10 +94,14 @@ const els = {
 
 function fmtAge(ts) {
   if (!ts) return "unknown";
+  const d = new Date(ts);
   const age = Math.round((Date.now() - ts) / 1000);
-  if (age < 60) return age + "s ago";
-  if (age < 3600) return Math.round(age / 60) + "m ago";
-  return Math.round(age / 3600) + "h ago";
+  const clock = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  let ago;
+  if (age < 60) ago = age + "s ago";
+  else if (age < 3600) ago = Math.round(age / 60) + "m ago";
+  else ago = Math.round(age / 3600) + "h ago";
+  return clock + " (" + ago + ")";
 }
 
 function renderSourceBadges(sources) {
@@ -638,8 +642,8 @@ async function fetchAll() {
     const _sources = [
       { name: "ZeroGEX", ts: zg?.ts || Date.now(), extra: "delayed ~15m" },
       { name: "AlgoX", ts: Date.now() },
-      { name: "Schwab chain", ts: schwab?.dataTs, extra: schwab ? (schwab.strikeCount + " strikes" + (schwab.hasGamma ? "" : ", no gamma")) : "unavailable" },
-      { name: "Schwab futures", ts: schwab?.dataTs },
+      { name: "Schwab chain", ts: schwab?.quoteTime || schwab?.dataTs, extra: schwab ? (schwab.strikeCount + " strikes" + (schwab.hasGamma ? "" : ", no gamma")) : "unavailable" },
+      { name: "Schwab futures", ts: schwab?.quoteTime || schwab?.dataTs },
       { name: "Yahoo", ts: Date.now() },
     ];
   updateDataAge(_sources);
