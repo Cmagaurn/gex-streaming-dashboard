@@ -848,10 +848,17 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       }
 
 
+      const drawnYs = [];
       const draw = (idx, color, label) => {
         if (idx < 0) return;
-        const y = yScale.getPixelForValue(idx);
+        let y = yScale.getPixelForValue(idx);
         if (y < yScale.top || y > yScale.bottom) return;
+        // Offset label if it would overlap a previous one
+        let labelY = y - 6;
+        for (const prev of drawnYs) {
+          if (Math.abs(labelY - prev) < 14) labelY = prev - 14;
+        }
+        drawnYs.push(labelY);
         ctx.save();
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
@@ -861,8 +868,8 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
         ctx.lineTo(xScale.right, y);
         ctx.stroke();
         ctx.fillStyle = color;
-        ctx.font = "11px sans-serif";
-        ctx.fillText(label, xScale.left + 6, y - 4);
+        ctx.font = "bold 12px sans-serif";
+        ctx.fillText(label, xScale.left + 8, labelY);
         ctx.restore();
       };
       const spot = schwab?.spot ?? focusSpot;

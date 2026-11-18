@@ -102,7 +102,7 @@
 
     <section class="chart-section">
       <canvas id="gexChart"></canvas>
-      <p style="font-size:0.8rem;color:#8b949e;margin:0.4rem 0 0">OI-by-strike proxy (Schwab open interest) can be overlaid as a volume-profile style guide; higher OI clusters often align with stronger gamma walls.</p>
+      <p style="font-size:0.8rem;color:#8b949e;margin:0.4rem 0 0"><div style="margin-top: 1rem; padding-bottom: 0.5rem; color:#8b949e; font-size:0.8rem;">Session volume profile (blue bars on the right) is derived from Schwab total volume by strike. Higher volume clusters often align with stronger gamma walls. Dashed lines mark spot, gamma flip, call wall, and put wall.</div></p>
     </section>
 
     <section class="chart-section" style="margin-top: 1.5rem; height: 320px;">
@@ -149,9 +149,14 @@
       </div>
       <canvas id="skewChart"></canvas>
     </section>
-    <details style="margin: 0.5rem 0 2rem 0; color:#8b949e; font-size:0.85rem; padding: 0.5rem 0;">
+    <details style="margin: 1rem 0 2.5rem 0; color:#8b949e; font-size:0.85rem; padding: 0.5rem 0; clear: both;">
       <summary style="cursor:pointer; user-select:none;">What the 25Δ risk reversal shows</summary>
-      <p style="margin: 0.4rem 0 0 0;">A drop means put skew is cheapening relative to calls (less demand for downside protection). A rise means puts are getting more expensive vs calls. Values are in volatility points for the front expiration.</p>
+      <p style="margin: 0.4rem 0 0 0;">
+        <strong>25Δ RR</strong> — Put IV minus call IV at approximately 25 delta for the front expiration (volatility points). Positive means puts are richer than calls (normal for equity indexes).<br>
+        <strong>vs 5-day avg</strong> — How far the current reading is from the average of recent stored points. Positive = skew is elevated vs recent history (more demand for downside protection).<br>
+        <strong>Regime</strong> — Where the current value ranks in the recent distribution. Elevated = top quartile, Low = bottom quartile, Normal = middle.<br>
+        A rising line means puts are getting more expensive relative to calls. A falling line means downside protection is cheapening.
+      </p>
     </details>
 
     
@@ -173,6 +178,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=34"></script>
+  <script src="app.js?v=35"></script>
 </body>
 </html>
