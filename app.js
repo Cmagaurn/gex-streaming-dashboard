@@ -917,7 +917,10 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
           if (strike == null || Math.abs(box - strike) < 0.5) return box.toLocaleString();
           return box.toLocaleString() + " (strike " + strike.toLocaleString() + ")";
         };
-        if (sSpot != null) draw(findIdx(sSpot), "#ffffff", "S Spot " + fmt(sSpot, sSpot), "right");
+        if (sSpot != null) {
+          const idx = findIdx(sSpot);
+          if (idx >= 0) draw(idx, "#ffffff", "S Spot " + Number(sSpot).toLocaleString(), "right");
+        }
         if (sFlip != null) draw(findIdx(sFlip), "#00ffff", "S Flip " + fmt(sFlip, sFlip), "right");
         if (sCall != null) draw(findIdx(sCall), "#00ffff", "S Call " + fmt(sCall, sCall), "right");
         if (sPut != null) draw(findIdx(sPut), "#ff64ff", "S Put " + fmt(sPut, sPut), "right");
@@ -952,12 +955,12 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
               let best = null, bestDiff = Infinity;
               Object.keys(oiMap).forEach(k => {
                 const d = Math.abs(parseFloat(k) - s.strike);
-                if (d < bestDiff && d <= 50) { bestDiff = d; best = oiMap[k]; }
+                if (d < bestDiff && d <= 100) { bestDiff = d; best = oiMap[k]; }
               });
               return best;
             });
           })(),
-          backgroundColor: "rgba(139,148,158,0.25)",
+          backgroundColor: "rgba(139,148,158,0.45)",
           borderWidth: 0,
           categoryPercentage: 0.9,
           barPercentage: 0.9,
