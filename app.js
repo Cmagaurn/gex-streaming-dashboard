@@ -883,7 +883,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       const draw = (idx, color, label, side = "left") => {
         if (idx < 0) return;
         let y = yScale.getPixelForValue(idx);
-        if (y < yScale.top || y > yScale.bottom) return;
+        if (y < yScale.top - 20 || y > yScale.bottom + 20) return;
         // Offset label if it would overlap a previous one
         let labelY = y - 6;
         for (const prev of drawnYs) {
@@ -908,7 +908,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       const showSchwab = document.getElementById("showSchwabLevels")?.checked !== false;
 
       if (showSchwab) {
-        const sSpot = schwab?.esQuotes?.[0]?.last;
+        const sSpot = schwab?.esQuotes?.[0]?.last ?? schwab?.spot;
         const sFlip = schwab?.gammaFlip;
         const sCall = schwab?.callWall;
         const sPut = schwab?.putWall;
@@ -955,12 +955,12 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
               let best = null, bestDiff = Infinity;
               Object.keys(oiMap).forEach(k => {
                 const d = Math.abs(parseFloat(k) - s.strike);
-                if (d < bestDiff && d <= 100) { bestDiff = d; best = oiMap[k]; }
+                if (d < bestDiff && d <= 250) { bestDiff = d; best = oiMap[k]; }
               });
               return best;
             });
           })(),
-          backgroundColor: "rgba(139,148,158,0.45)",
+          backgroundColor: "rgba(139,148,158,0.6)",
           borderWidth: 0,
           categoryPercentage: 0.9,
           barPercentage: 0.9,
@@ -1022,10 +1022,13 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
           suggestedMax: xMax
         },
         x1: {
+          type: "linear",
+          position: "top",
+          display: true,
           title: { display: true, text: "Open Interest", color: "#8b949e" },
           ticks: { color: "#8b949e" },
           grid: { drawOnChartArea: false },
-          position: "top",
+          beginAtZero: true,
         },
         y: {
           ticks: { color: "#8b949e" },
