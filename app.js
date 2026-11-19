@@ -657,7 +657,7 @@ async function fetchAll() {
     const _sources = [
       { name: "ZeroGEX", ts: zg?.receivedAt, extra: "server received · assumed ~15m delayed" },
       { name: "AlgoX", ts: algox?.receivedAt, extra: "server received · no source time" },
-      { name: "Schwab chain", ts: schwab?.quoteTime || schwab?.receivedAt || schwab?.dataTs, extra: schwab ? ((schwab.quoteTime ? "quote time" : "server received") + " · " + schwab.strikeCount + " strikes" + (schwab.hasGamma ? "" : ", no gamma")) : "unavailable" },
+      { name: "Schwab chain", ts: schwab?.quoteTime || schwab?.receivedAt || schwab?.dataTs, extra: schwab ? ((localStorage.getItem("schwabWindow") || "30") + "d · " + schwab.strikeCount + " strikes" + (schwab.hasGamma ? "" : ", no gamma")) : "unavailable" },
       { name: "Schwab futures", ts: schwab?.esQuotes?.[0]?.quoteTime || schwab?.quoteTime || schwab?.receivedAt, extra: schwab?.esQuotes?.[0]?.quoteTime ? "quote time" : "server received" },
       { name: "Yahoo", ts: price?.receivedAt, extra: "server received" },
     ];
@@ -908,7 +908,7 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       const showSchwab = document.getElementById("showSchwabLevels")?.checked !== false;
 
       if (showSchwab) {
-        const sSpot = schwab?.esQuotes?.[0]?.last ?? schwab?.spot;
+        const sSpot = schwab?.esQuotes?.[0]?.last;
         const sFlip = schwab?.gammaFlip;
         const sCall = schwab?.callWall;
         const sPut = schwab?.putWall;
@@ -942,6 +942,28 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
     data: {
       labels,
       datasets: [
+        {
+          label: "Open Interest",
+          data: (() => {
+            if (!schwab || !schwab.oiStrikes || !schwab.oiValues) return strikes.map(() => null);
+            const oiMap = {};
+            schwab.oiStrikes.forEach((s, i) => { oiMap[s] = schwab.oiValues[i]; });
+            return strikes.map(s => {
+              let best = null, bestDiff = Infinity;
+              Object.keys(oiMap).forEach(k => {
+                const d = Math.abs(parseFloat(k) - s.strike);
+                if (d < bestDiff && d <= 50) { bestDiff = d; best = oiMap[k]; }
+              });
+              return best;
+            });
+          })(),
+          backgroundColor: "rgba(139,148,158,0.25)",
+          borderWidth: 0,
+          categoryPercentage: 0.9,
+          barPercentage: 0.9,
+          xAxisID: "x1",
+          order: 3,
+        },
         {
           label: "ZeroGEX / AlgoX ($M)",
           data: values,
