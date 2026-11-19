@@ -203,9 +203,10 @@ async function fetchVixTerm() {
   } catch { return null; }
 }
 
-async function fetchSchwabGex(symbol) {
+async function fetchSchwabGex(symbol, windowDays) {
   try {
-    const res = await fetch(`/api/schwab-gex?symbol=${encodeURIComponent(symbol)}`);
+    const w = windowDays || localStorage.getItem("schwabWindow") || "30";
+    const res = await fetch(`/api/schwab-gex?symbol=${encodeURIComponent(symbol)}&window=${w}`);
     if (!res.ok) return null;
     return await res.json();
   } catch (e) {
@@ -1157,4 +1158,10 @@ function updateSkew(schwab, symbol) {
 fetchAll();
   document.getElementById("showZgLevels")?.addEventListener("change", () => fetchAll());
   document.getElementById("showSchwabLevels")?.addEventListener("change", () => fetchAll());
+  const sw = document.getElementById("schwabWindow");
+  if (sw) {
+    const saved = localStorage.getItem("schwabWindow") || "30";
+    sw.value = saved;
+    sw.addEventListener("change", (e) => { localStorage.setItem("schwabWindow", e.target.value); fetchAll(); });
+  }
 startPolling();
