@@ -32,11 +32,13 @@ export default async function handler(req, res) {
     const accessToken = tokens.access_token;
 
     const today = new Date().toISOString().slice(0, 10);
-    const toDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const windowDays = Math.min(180, Math.max(1, parseInt(req.query.window, 10) || 30));
+    const toDate = new Date(Date.now() + windowDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const strikeCount = windowDays >= 90 ? "100" : "50";
     const chainUrl = new URL("https://api.schwabapi.com/marketdata/v1/chains");
     chainUrl.searchParams.set("symbol", schwabSymbol);
     chainUrl.searchParams.set("contractType", "ALL");
-    chainUrl.searchParams.set("strikeCount", "50");
+    chainUrl.searchParams.set("strikeCount", strikeCount);
     chainUrl.searchParams.set("includeUnderlyingQuote", "true");
     chainUrl.searchParams.set("toDate", toDate);
 
