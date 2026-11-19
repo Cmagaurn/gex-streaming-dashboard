@@ -908,7 +908,9 @@ function renderChart(algox, focusSpot, zg, symbol, schwab) {
       const showSchwab = document.getElementById("showSchwabLevels")?.checked !== false;
 
       if (showSchwab) {
-        const sSpot = schwab?.esQuotes?.[0]?.last ?? schwab?.spot;
+        const sSpot = (schwab?.esQuotes && schwab.esQuotes[0] && schwab.esQuotes[0].last != null)
+          ? schwab.esQuotes[0].last
+          : null;
         const sFlip = schwab?.gammaFlip;
         const sCall = schwab?.callWall;
         const sPut = schwab?.putWall;
