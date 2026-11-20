@@ -90,24 +90,29 @@
       const out = [];
       let inOrder = false;
       for (const line of lines) {
-        if (line.startsWith("Exec Time") || line.includes("Exec Time,Spread,Side")) { inOrder = true; continue; }
+        if (line.includes("Account Order History")) { inOrder = true; continue; }
         if (!inOrder) continue;
-        if (!line.trim() || line.startsWith("Futures Options") || line.startsWith("Profits")) break;
+        if (line.startsWith("Futures Options") || line.startsWith("Profits")) break;
+        if (!line.trim() || line.startsWith("Notes,")) continue;
         const cols = line.split(",");
-        if (cols.length < 8) continue;
-        const exec = cols[0]?.trim();
-        const side = cols[2]?.trim();
-        const qty = parseFloat(cols[3]) || 0;
-        const symbol = cols[5]?.trim() || "";
-        const strike = cols[7]?.trim() || "";
-        const type = cols[8]?.trim() || "";
-        const price = parseFloat(cols[9]) || 0;
-        if (!exec || !side) continue;
-        const dt = new Date(exec.replace(/(\d+)\/(\d+)\/(\d+)/, "20$3-$1-$2"));
+        if (cols.length < 12) continue;
+        const symbol = cols[2]?.trim() || "";
+        const timeStr = cols[3]?.trim() || "";
+        const side = cols[5]?.trim() || "";
+        const qty = parseFloat(cols[6]) || 0;
+        const strike = cols[9]?.trim() || "";
+        const type = cols[10]?.trim() || "";
+        const price = parseFloat(cols[11]) || 0;
+        const status = cols[14]?.trim() || "";
+        if (!timeStr || !side || status === "CANCELED") continue;
+        if (!/ES|\/ES/i.test(symbol)) continue;
+        const m = timeStr.match(/(\d+)\/(\d+)\/(\d+)\s+(\d+):(\d+):(\d+)/);
+        if (!m) continue;
+        const dt = new Date(2000 + parseInt(m[3]), parseInt(m[1]) - 1, parseInt(m[2]), parseInt(m[4]), parseInt(m[5]), parseInt(m[6]));
         if (isNaN(dt)) continue;
         out.push({ dt, side, qty: Math.abs(qty), symbol, strike, type, price, raw: line });
       }
-      return out.filter(t => /ES|\/ES/i.test(t.symbol));
+      return out;
     }
 
     function computeRoundTrips(list) {
