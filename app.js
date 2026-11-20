@@ -1115,7 +1115,7 @@ function renderSkewChart(hist, symbol) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      layout: { padding: { bottom: 8 } },
+      layout: { padding: { bottom: 16 } },
       plugins: {
         legend: { display: true, labels: { color: "#e6edf3" } },
         title: { display: true, text: "25-Delta Risk Reversal (front month)", color: "#e6edf3" }

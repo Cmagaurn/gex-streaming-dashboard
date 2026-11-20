@@ -160,7 +160,7 @@
       </div>
     </section>
 
-    <section style="margin-top: 1.5rem; margin-bottom: 0.5rem; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1rem 2rem 1rem; height: 420px;">
+    <section style="margin-top: 1.5rem; margin-bottom: 0.5rem; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1rem 2.5rem 1rem; height: auto; min-height: 460px;">
       <div id="skewSummary" style="display:flex;gap:1.5rem;align-items:baseline;margin-bottom:0.6rem;flex-wrap:wrap">
         <div>
           <div style="font-size:0.75rem;color:#8b949e">25Δ RR</div>
@@ -175,9 +175,9 @@
           <div id="skewRegime" style="font-size:1rem;cursor:help" title="Where the current 25Δ RR ranks in the recent distribution. Elevated = top quartile (puts relatively expensive). Low = bottom quartile (puts relatively cheap). Normal = middle.">--</div>
         </div>
       </div>
-      <canvas id="skewChart" style="height:280px"></canvas>
+      <canvas id="skewChart" style="height:300px; max-height:300px;"></canvas>
     </section>
-    <div id="skewDiag" style="margin: 0.4rem 0 1.2rem 0; font-size:0.8rem; color:#8b949e; line-height:1.4;">
+    <div id="skewDiag" style="margin: 0.8rem 0 1.2rem 0; font-size:0.8rem; color:#8b949e; line-height:1.4; clear: both;">
       Diagnostics: waiting for first update…
     </div>
     <details style="margin: 0.5rem 0 2.5rem 0; color:#8b949e; font-size:0.85rem; padding: 0.5rem 0; clear: both;">
