@@ -272,12 +272,17 @@ async function loadHistory() {
   return [];
 }
 
-async function postHistorySnapshot() {
+async function postHistorySnapshot(symbol, skewRR) {
   const now = Date.now();
-  if (now - lastHistoryPost < HISTORY_POST_INTERVAL) return;
+  if (now - lastHistoryPost < HISTORY_POST_INTERVAL && skewRR == null) return;
   lastHistoryPost = now;
   try {
-    await fetch("/api/history", { method: "POST" });
+    const body = skewRR != null ? JSON.stringify({ symbol: symbol || "ES", skewRR }) : undefined;
+    await fetch("/api/history", {
+      method: "POST",
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body,
+    });
   } catch (e) {
     console.warn("History post failed", e);
   }
@@ -1076,14 +1081,9 @@ let skewChart = null;
 function renderSkewChart(hist, symbol) {
   const canvas = document.getElementById("skewChart");
   if (!canvas) return;
-  const serverPts = (hist || []).filter(e => (e.symbol || "ES") === symbol && e.skewRR != null)
-    .map(e => ({ ts: e.ts, skewRR: Number(e.skewRR) }));
-  const localPts = loadSkewStore().filter(p => (p.symbol || "ES") === symbol && p.skewRR != null)
-    .map(p => ({ ts: p.ts, skewRR: Number(p.skewRR) }));
-  // Prefer server points; add local points that are newer than the latest server point
-  const latestServer = serverPts.length ? Math.max(...serverPts.map(p => p.ts)) : 0;
-  const extraLocal = localPts.filter(p => p.ts > latestServer + 60000);
-  const points = [...serverPts, ...extraLocal].sort((a, b) => a.ts - b.ts);
+  const points = (hist || []).filter(e => (e.symbol || "ES") === symbol && e.skewRR != null)
+    .map(e => ({ ts: e.ts, skewRR: Number(e.skewRR) }))
+    .sort((a, b) => a.ts - b.ts);
   const labels = points.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
   const values = points.map(e => e.skewRR);
   if (skewChart) skewChart.destroy();
@@ -1132,6 +1132,7 @@ function updateSkew(schwab, symbol) {
       curEl.style.color = rr > 0 ? "#f85149" : "#3fb950";
     }
     saveSkewPoint(rr, symbol);
+  postHistorySnapshot(symbol, rr);
     const pts = loadSkewStore().filter(p => (p.symbol || "ES") === symbol).map(p => p.skewRR);
     if (vsEl) {
       vsEl.title = "Difference between the current 25Δ risk reversal and the average of recent stored points. Positive means skew is higher than recent average (more demand for downside protection).";
