@@ -116,17 +116,33 @@
     }
 
     function computeRoundTrips(list) {
+      const sorted = [...list].sort((a, b) => a.dt - b.dt);
       const open = {};
-      return list.map(t => {
+      return sorted.map(t => {
         const key = `${t.symbol}|${t.strike}|${t.type}`;
         let pnl = null;
-        if (/buy|bot/i.test(t.side)) {
-          open[key] = open[key] || [];
-          open[key].push({ qty: t.qty, price: t.price });
-        } else if (/sell|sold/i.test(t.side) && open[key]?.length) {
+        const isBuy = /buy|bot/i.test(t.side);
+        open[key] = open[key] || [];
+        if (isBuy) {
+          // Try to close existing shorts first
+          let remain = t.qty;
+          let proceeds = 0, matched = 0;
+          while (remain > 0 && open[key].length && open[key][0].side === "sell") {
+            const o = open[key][0];
+            const take = Math.min(remain, o.qty);
+            proceeds += take * o.price;
+            matched += take;
+            o.qty -= take;
+            remain -= take;
+            if (o.qty <= 0) open[key].shift();
+          }
+          if (matched > 0) pnl = (proceeds - t.price * matched) * 50;
+          if (remain > 0) open[key].push({ side: "buy", qty: remain, price: t.price });
+        } else {
+          // Try to close existing longs first
           let remain = t.qty;
           let cost = 0, matched = 0;
-          while (remain > 0 && open[key].length) {
+          while (remain > 0 && open[key].length && open[key][0].side === "buy") {
             const o = open[key][0];
             const take = Math.min(remain, o.qty);
             cost += take * o.price;
@@ -136,12 +152,26 @@
             if (o.qty <= 0) open[key].shift();
           }
           if (matched > 0) pnl = (t.price * matched - cost) * 50;
+          if (remain > 0) open[key].push({ side: "sell", qty: remain, price: t.price });
         }
         return { ...t, pnl };
       });
     }
 
-    function renderSummary(list) {
+    function parseBalance(text) {
+      const lines = text.split(/\r?\n/);
+      let last = null;
+      for (const line of lines) {
+        if (!line.includes(",BAL,")) continue;
+        const cols = line.split(",");
+        const bal = cols[cols.length - 1]?.replace(/[",]/g, "");
+        const n = parseFloat(bal);
+        if (!isNaN(n)) last = n;
+      }
+      return last;
+    }
+
+    function renderSummary(list, balance) {
       const el = document.getElementById("summary");
       const totalPnl = list.reduce((s, t) => s + (t.pnl || 0), 0);
       const comm = list.length * 2.25;
@@ -149,6 +179,7 @@
         <div class="box"><div class="label">Trades</div><div class="val">${list.length}</div></div>
         <div class="box"><div class="label">Round-trip P&L</div><div class="val ${totalPnl>=0?"pos":"neg"}">${totalPnl.toFixed(0)}</div></div>
         <div class="box"><div class="label">Est. Commission</div><div class="val neg">${comm.toFixed(0)}</div></div>
+        <div class="box"><div class="label">Cash Balance</div><div class="val">${balance != null ? balance.toLocaleString() : "--"}</div></div>
       `;
     }
 
@@ -232,7 +263,8 @@
       let filtered = trades;
       if (start) filtered = filtered.filter(t => t.dt >= new Date(start));
       if (end) filtered = filtered.filter(t => t.dt <= new Date(end + "T23:59:59"));
-      renderSummary(filtered);
+      const bal = text ? parseBalance(text) : null;
+      renderSummary(filtered, bal);
       renderTable(filtered);
       renderChart(history, filtered);
       status.textContent = `${filtered.length} ES trades · ${history.length} history points`;
