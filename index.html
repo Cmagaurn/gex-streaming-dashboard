@@ -175,12 +175,12 @@
           <div id="skewRegime" style="font-size:1rem;cursor:help" title="Where the current 25Δ RR ranks in the recent distribution. Elevated = top quartile (puts relatively expensive). Low = bottom quartile (puts relatively cheap). Normal = middle.">--</div>
         </div>
       </div>
-      <canvas id="skewChart" style="height:320px"></canvas>
-      <div id="skewDiag" style="margin-top:0.8rem;font-size:0.8rem;color:#8b949e;line-height:1.4">
-        Diagnostics: waiting for first update…
-      </div>
+      <canvas id="skewChart" style="height:280px"></canvas>
     </section>
-    <details style="margin: 3.5rem 0 2.5rem 0; color:#8b949e; font-size:0.85rem; padding: 0.5rem 0; clear: both;">
+    <div id="skewDiag" style="margin: 0.6rem 0 1.5rem 0; font-size:0.8rem; color:#8b949e; line-height:1.4;">
+      Diagnostics: waiting for first update…
+    </div>
+    <details style="margin: 1rem 0 2.5rem 0; color:#8b949e; font-size:0.85rem; padding: 0.5rem 0; clear: both;">
       <summary style="cursor:pointer; user-select:none;">What the 25Δ risk reversal shows</summary>
       <p style="margin: 0.4rem 0 0 0;">
         <strong>25Δ RR</strong> — Put IV minus call IV at approximately 25 delta for the front expiration (volatility points). Positive means puts are richer than calls (normal for equity indexes).<br>
@@ -209,6 +209,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=57"></script>
+  <script src="app.js?v=58"></script>
 </body>
 </html>

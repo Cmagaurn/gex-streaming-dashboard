@@ -1093,7 +1093,8 @@ function renderSkewChart(hist, symbol) {
     .map(e => ({ ts: e.ts, skewRR: Number(e.skewRR) }))
     .sort((a, b) => a.ts - b.ts);
   const lastTs = points.length ? new Date(points[points.length - 1].ts).toLocaleString() : "none";
-  updateSkewDiag(`Points in history: ${points.length} · Last point: ${lastTs} · Source: server history (Schwab skewRR)`);
+  const status = points.length ? "live" : "Schwab skewRR unavailable";
+  updateSkewDiag(`Source: Schwab · Status: ${status} · Points in history: ${points.length} · Last point: ${lastTs}`);
   const labels = points.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
   const values = points.map(e => e.skewRR);
   if (skewChart) skewChart.destroy();
@@ -1133,6 +1134,7 @@ function updateSkew(schwab, symbol) {
   const regEl = document.getElementById("skewRegime");
   if (schwab && schwab.skewRR != null) {
     const rr = schwab.skewRR;
+    updateSkewDiag(`Source: Schwab · Status: live · Current: ${rr.toFixed(2)}`);
     if (el) {
       el.textContent = `25Δ RR: ${rr.toFixed(2)} vol pts`;
       el.style.color = rr > 0 ? "#f85149" : "#3fb950";
