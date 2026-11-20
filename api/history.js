@@ -164,6 +164,19 @@ export default async function handler(req, res) {
       return res.status(200).json(history);
     }
 
+    // Accept a client-supplied skew point so the 25-delta chart can store history
+    let body = {};
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {}); } catch { body = {}; }
+    if (body.skewRR != null && body.symbol) {
+      history.push({
+        ts: Date.now(),
+        symbol: body.symbol,
+        skewRR: Number(body.skewRR),
+      });
+      const cutoff = Date.now() - 5 * 24 * 60 * 60 * 1000;
+      history = history.filter(e => e && e.ts >= cutoff);
+    }
+
     if (!isWithinCollectionWindow()) {
       return res.status(200).json({ ok: true, skipped: true, reason: "Outside collection window (Sun 3PM CDT – Fri 8PM CDT)" });
     }
