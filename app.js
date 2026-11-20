@@ -1145,22 +1145,22 @@ function updateSkew(schwab, symbol) {
       curEl.style.color = rr > 0 ? "#f85149" : "#3fb950";
     }
     saveSkewPoint(rr, symbol);
-  postHistorySnapshot(symbol, rr);
-    const pts = loadSkewStore().filter(p => (p.symbol || "ES") === symbol).map(p => p.skewRR);
+    postHistorySnapshot(symbol, rr);
+    const histPts = (window._lastHist || []).filter(e => (e.symbol || "ES") === symbol && e.skewRR != null).map(e => Number(e.skewRR));
     if (vsEl) {
-      vsEl.title = "Difference between the current 25Δ risk reversal and the average of recent stored points. Positive means skew is higher than recent average (more demand for downside protection).";
+      vsEl.title = "Difference between the current 25Δ risk reversal and the average of recent server history points. Positive means skew is higher than recent average (more demand for downside protection).";
     }
-    if (vsEl && pts.length) {
-      const avg = pts.reduce((a, b) => a + b, 0) / pts.length;
+    if (vsEl && histPts.length) {
+      const avg = histPts.reduce((a, b) => a + b, 0) / histPts.length;
       const diff = rr - avg;
       vsEl.textContent = (diff >= 0 ? "+" : "") + diff.toFixed(2);
       vsEl.style.color = diff > 0 ? "#f85149" : "#3fb950";
     }
     if (regEl) {
-      regEl.title = "Where the current 25Δ RR ranks in the recent distribution. Elevated = top quartile (puts relatively expensive). Low = bottom quartile (puts relatively cheap). Normal = middle.";
+      regEl.title = "Where the current 25Δ RR ranks in the recent server history. Elevated = top quartile (puts relatively expensive). Low = bottom quartile (puts relatively cheap). Normal = middle.";
     }
-    if (regEl && pts.length >= 5) {
-      const sorted = [...pts].sort((a, b) => a - b);
+    if (regEl && histPts.length >= 5) {
+      const sorted = [...histPts].sort((a, b) => a - b);
       const rank = sorted.filter(v => v <= rr).length / sorted.length;
       let label = "Normal", color = "#d29922";
       if (rank > 0.75) { label = "Elevated"; color = "#f85149"; }
