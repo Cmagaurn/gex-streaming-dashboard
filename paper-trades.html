@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paper Trades GEX History</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    nav { margin-bottom: 1rem; }
+    nav a { color: #58a6ff; margin-right: 1rem; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    .controls { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin: 1rem 0; }
+    .controls label { font-size: 0.9rem; color: #8b949e; }
+    .controls input, .controls button { padding: 0.4rem 0.6rem; border-radius: 6px; background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+    .chart-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin: 1rem 0; height: 480px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 1rem; }
+    th, td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--border); text-align: left; }
+    th { color: #8b949e; font-weight: 600; }
+    .pos { color: #3fb950; }
+    .neg { color: #f85149; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin: 1rem 0; }
+    .summary .box { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; text-align: center; }
+    .summary .box .label { font-size: 0.75rem; color: #8b949e; }
+    .summary .box .val { font-size: 1.2rem; font-weight: 600; margin-top: 0.2rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="/">← Dashboard</a>
+      <a href="paper-trades.html">Paper Trades</a>
+    </nav>
+    <h1>Paper Trades GEX History</h1>
+    <p class="subtitle">ES paper trades overlaid on available GEX / 25-delta history</p>
+  </header>
+
+  <main style="padding: 1.5rem 2rem;">
+    <div class="controls">
+      <label>Start <input type="date" id="startDate"></label>
+      <label>End <input type="date" id="endDate"></label>
+      <label>CSV <input type="file" id="csvFile" accept=".csv"></label>
+      <button id="loadBtn">Load</button>
+      <span id="status" style="color:#8b949e;font-size:0.85rem">Upload a CSV or place Account Statement paper account margin.csv in the repo</span>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="chart-wrap">
+      <canvas id="tradeChart"></canvas>
+    </div>
+
+    <h2 style="font-size:1.1rem;margin-top:1.5rem">Trades</h2>
+    <div style="overflow-x:auto">
+      <table id="tradeTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Side</th>
+            <th>Qty</th>
+            <th>Symbol</th>
+            <th>Strike</th>
+            <th>Type</th>
+            <th>Price</th>
+            <th>Commission</th>
+            <th>Round-trip P&L</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    let chart = null;
+    let trades = [];
+    let history = [];
+
+    async function loadHistory() {
+      try {
+        const res = await fetch("/api/history");
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data.filter(e => (e.symbol || "ES") === "ES") : [];
+      } catch { return []; }
+    }
+
+    function parseCSV(text) {
+      const lines = text.split(/\r?\n/);
+      const out = [];
+      let inOrder = false;
+      for (const line of lines) {
+        if (line.startsWith("Exec Time") || line.includes("Exec Time,Spread,Side")) { inOrder = true; continue; }
+        if (!inOrder) continue;
+        if (!line.trim() || line.startsWith("Futures Options") || line.startsWith("Profits")) break;
+        const cols = line.split(",");
+        if (cols.length < 8) continue;
+        const exec = cols[0]?.trim();
+        const side = cols[2]?.trim();
+        const qty = parseFloat(cols[3]) || 0;
+        const symbol = cols[5]?.trim() || "";
+        const strike = cols[7]?.trim() || "";
+        const type = cols[8]?.trim() || "";
+        const price = parseFloat(cols[9]) || 0;
+        if (!exec || !side) continue;
+        const dt = new Date(exec.replace(/(\d+)\/(\d+)\/(\d+)/, "20$3-$1-$2"));
+        if (isNaN(dt)) continue;
+        out.push({ dt, side, qty: Math.abs(qty), symbol, strike, type, price, raw: line });
+      }
+      return out.filter(t => /ES|\/ES/i.test(t.symbol));
+    }
+
+    function computeRoundTrips(list) {
+      const open = {};
+      return list.map(t => {
+        const key = `${t.symbol}|${t.strike}|${t.type}`;
+        let pnl = null;
+        if (/buy|bot/i.test(t.side)) {
+          open[key] = open[key] || [];
+          open[key].push({ qty: t.qty, price: t.price });
+        } else if (/sell|sold/i.test(t.side) && open[key]?.length) {
+          let remain = t.qty;
+          let cost = 0, matched = 0;
+          while (remain > 0 && open[key].length) {
+            const o = open[key][0];
+            const take = Math.min(remain, o.qty);
+            cost += take * o.price;
+            matched += take;
+            o.qty -= take;
+            remain -= take;
+            if (o.qty <= 0) open[key].shift();
+          }
+          if (matched > 0) pnl = (t.price * matched - cost) * 50;
+        }
+        return { ...t, pnl };
+      });
+    }
+
+    function renderSummary(list) {
+      const el = document.getElementById("summary");
+      const totalPnl = list.reduce((s, t) => s + (t.pnl || 0), 0);
+      const comm = list.length * 2.25;
+      el.innerHTML = `
+        <div class="box"><div class="label">Trades</div><div class="val">${list.length}</div></div>
+        <div class="box"><div class="label">Round-trip P&L</div><div class="val ${totalPnl>=0?"pos":"neg"}">${totalPnl.toFixed(0)}</div></div>
+        <div class="box"><div class="label">Est. Commission</div><div class="val neg">${comm.toFixed(0)}</div></div>
+      `;
+    }
+
+    function renderTable(list) {
+      const tb = document.querySelector("#tradeTable tbody");
+      tb.innerHTML = list.map(t => `
+        <tr>
+          <td>${t.dt.toLocaleString()}</td>
+          <td>${t.side}</td>
+          <td>${t.qty}</td>
+          <td>${t.symbol}</td>
+          <td>${t.strike}</td>
+          <td>${t.type}</td>
+          <td>${t.price}</td>
+          <td>2.25</td>
+          <td class="${(t.pnl||0)>=0?"pos":"neg"}">${t.pnl != null ? t.pnl.toFixed(0) : "--"}</td>
+        </tr>
+      `).join("");
+    }
+
+    function renderChart(hist, list) {
+      const canvas = document.getElementById("tradeChart");
+      if (chart) chart.destroy();
+      const labels = hist.map(e => new Date(e.ts).toLocaleString([], { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" }));
+      const price = hist.map(e => e.spot);
+      const gex = hist.map(e => e.netGex ? e.netGex / 1e6 : null);
+      const skew = hist.map(e => e.skewRR);
+      chart = new Chart(canvas, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            { label: "ES Price", data: price, borderColor: "#58a6ff", yAxisID: "y", tension: 0.1, pointRadius: 0 },
+            { label: "Net GEX ($M)", data: gex, borderColor: "#d29922", yAxisID: "y1", tension: 0.1, pointRadius: 0 },
+            { label: "25Δ RR", data: skew, borderColor: "#bc8cff", yAxisID: "y2", tension: 0.1, pointRadius: 0 },
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: "#e6edf3" } } },
+          scales: {
+            x: { ticks: { color: "#8b949e", maxTicksLimit: 10 } },
+            y: { position: "left", ticks: { color: "#58a6ff" }, title: { display: true, text: "Price", color: "#58a6ff" } },
+            y1: { position: "right", ticks: { color: "#d29922" }, grid: { drawOnChartArea: false }, title: { display: true, text: "Net GEX $M", color: "#d29922" } },
+            y2: { position: "right", ticks: { color: "#bc8cff" }, grid: { drawOnChartArea: false }, title: { display: true, text: "25Δ RR", color: "#bc8cff" } },
+          }
+        }
+      });
+    }
+
+    async function load() {
+      const status = document.getElementById("status");
+      status.textContent = "Loading…";
+      history = await loadHistory();
+      const file = document.getElementById("csvFile").files[0];
+      if (file) {
+        const text = await file.text();
+        trades = computeRoundTrips(parseCSV(text));
+      }
+      const start = document.getElementById("startDate").value;
+      const end = document.getElementById("endDate").value;
+      let filtered = trades;
+      if (start) filtered = filtered.filter(t => t.dt >= new Date(start));
+      if (end) filtered = filtered.filter(t => t.dt <= new Date(end + "T23:59:59"));
+      renderSummary(filtered);
+      renderTable(filtered);
+      renderChart(history, filtered);
+      status.textContent = `${filtered.length} ES trades · ${history.length} history points`;
+    }
+
+    document.getElementById("loadBtn").addEventListener("click", load);
+    load();
+  </script>
+</body>
+</html>
