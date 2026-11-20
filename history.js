@@ -164,20 +164,17 @@ export default async function handler(req, res) {
       return res.status(200).json(history);
     }
 
-    // Accept a client-supplied skew point so the 25-delta chart survives cache clears
+    // Accept a client-supplied skew point
     let body = {};
-    try { body = req.body || {}; } catch { body = {}; }
+    try { body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {}); } catch { body = {}; }
     if (body.skewRR != null && body.symbol) {
-      const entry = {
+      history.push({
         ts: Date.now(),
         symbol: body.symbol,
         skewRR: Number(body.skewRR),
-      };
-      history.push(entry);
+      });
       const cutoff = Date.now() - 5 * 24 * 60 * 60 * 1000;
       history = history.filter(e => e && e.ts >= cutoff);
-      // Write back (reuse the existing GitHub write path below by falling through after a simple update)
-      // For simplicity we still run the normal collection; the skew point is already in history.
     }
 
     if (!isWithinCollectionWindow()) {

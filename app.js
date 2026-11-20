@@ -274,15 +274,18 @@ async function loadHistory() {
 
 async function postHistorySnapshot(symbol, skewRR) {
   const now = Date.now();
-  if (now - lastHistoryPost < HISTORY_POST_INTERVAL && skewRR == null) return;
+  // Always allow a skew post; throttle only empty posts
+  if (skewRR == null && now - lastHistoryPost < HISTORY_POST_INTERVAL) return;
+  if (skewRR != null && now - lastHistoryPost < 60000) return; // at most once a minute for skew
   lastHistoryPost = now;
   try {
     const body = skewRR != null ? JSON.stringify({ symbol: symbol || "ES", skewRR }) : undefined;
-    await fetch("/api/history", {
+    const res = await fetch("/api/history", {
       method: "POST",
       headers: body ? { "Content-Type": "application/json" } : undefined,
       body,
     });
+    if (!res.ok) console.warn("History post status", res.status);
   } catch (e) {
     console.warn("History post failed", e);
   }
