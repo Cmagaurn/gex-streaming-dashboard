@@ -160,7 +160,7 @@
       </div>
     </section>
 
-    <section style="margin-top: 1.5rem; margin-bottom: 2rem; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; height: 380px;">
+    <section style="margin-top: 1.5rem; margin-bottom: 0.5rem; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1rem 2rem 1rem; height: 420px;">
       <div id="skewSummary" style="display:flex;gap:1.5rem;align-items:baseline;margin-bottom:0.6rem;flex-wrap:wrap">
         <div>
           <div style="font-size:0.75rem;color:#8b949e">25Δ RR</div>
@@ -177,10 +177,10 @@
       </div>
       <canvas id="skewChart" style="height:280px"></canvas>
     </section>
-    <div id="skewDiag" style="margin: 0.6rem 0 1.5rem 0; font-size:0.8rem; color:#8b949e; line-height:1.4;">
+    <div id="skewDiag" style="margin: 0.4rem 0 1.2rem 0; font-size:0.8rem; color:#8b949e; line-height:1.4;">
       Diagnostics: waiting for first update…
     </div>
-    <details style="margin: 1rem 0 2.5rem 0; color:#8b949e; font-size:0.85rem; padding: 0.5rem 0; clear: both;">
+    <details style="margin: 0.5rem 0 2.5rem 0; color:#8b949e; font-size:0.85rem; padding: 0.5rem 0; clear: both;">
       <summary style="cursor:pointer; user-select:none;">What the 25Δ risk reversal shows</summary>
       <p style="margin: 0.4rem 0 0 0;">
         <strong>25Δ RR</strong> — Put IV minus call IV at approximately 25 delta for the front expiration (volatility points). Positive means puts are richer than calls (normal for equity indexes).<br>
@@ -209,6 +209,6 @@
     </section>
   </main>
 
-  <script src="app.js?v=58"></script>
+  <script src="app.js?v=59"></script>
 </body>
 </html>

@@ -1115,12 +1115,13 @@ function renderSkewChart(hist, symbol) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      layout: { padding: { bottom: 8 } },
       plugins: {
         legend: { display: true, labels: { color: "#e6edf3" } },
         title: { display: true, text: "25-Delta Risk Reversal (front month)", color: "#e6edf3" }
       },
       scales: {
-        x: { ticks: { color: "#8b949e", maxTicksLimit: 12 }, grid: { color: "#30363d" } },
+        x: { ticks: { color: "#8b949e", maxTicksLimit: 8, maxRotation: 0, autoSkip: true }, grid: { color: "#30363d" } },
         y: { ticks: { color: "#8b949e" }, grid: { color: "#30363d" } }
       }
     }
