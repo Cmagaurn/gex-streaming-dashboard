@@ -661,7 +661,6 @@ async function fetchAll() {
     updateSchwabBoxes(schwab);
     updateEsQuotes(schwab);
     updatePutCall(schwab);
-    window._lastHist = hist || [];
     updateSkew(schwab, symbol);
     const _sources = [
       { name: "ZeroGEX", ts: zg?.receivedAt, extra: "server received · assumed ~15m delayed" },
