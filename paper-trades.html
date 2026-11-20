@@ -200,13 +200,31 @@
       });
     }
 
+    async function tryLoadCSV() {
+      const names = ["Account Statement paper account margin.csv", "trades.csv", "paper-trades.csv"];
+      for (const name of names) {
+        try {
+          const res = await fetch(name);
+          if (res.ok) return await res.text();
+        } catch {}
+      }
+      return null;
+    }
+
     async function load() {
       const status = document.getElementById("status");
       status.textContent = "Loading…";
       history = await loadHistory();
+      let text = null;
       const file = document.getElementById("csvFile").files[0];
       if (file) {
-        const text = await file.text();
+        text = await file.text();
+        status.textContent = "Parsing uploaded file…";
+      } else {
+        text = await tryLoadCSV();
+        if (text) status.textContent = "Loaded CSV from repo…";
+      }
+      if (text) {
         trades = computeRoundTrips(parseCSV(text));
       }
       const start = document.getElementById("startDate").value;
