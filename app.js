@@ -1078,12 +1078,19 @@ function saveSkewPoint(rr, symbol) {
 }
 
 let skewChart = null;
+function updateSkewDiag(msg) {
+  const el = document.getElementById("skewDiag");
+  if (el) el.textContent = msg;
+}
+
 function renderSkewChart(hist, symbol) {
   const canvas = document.getElementById("skewChart");
   if (!canvas) return;
   const points = (hist || []).filter(e => (e.symbol || "ES") === symbol && e.skewRR != null)
     .map(e => ({ ts: e.ts, skewRR: Number(e.skewRR) }))
     .sort((a, b) => a.ts - b.ts);
+  const lastTs = points.length ? new Date(points[points.length - 1].ts).toLocaleString() : "none";
+  updateSkewDiag(`Points in history: ${points.length} · Last point: ${lastTs} · Source: server history (Schwab skewRR)`);
   const labels = points.map(e => new Date(e.ts).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
   const values = points.map(e => e.skewRR);
   if (skewChart) skewChart.destroy();
